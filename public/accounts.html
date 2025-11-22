@@ -1,0 +1,290 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docfinder • Accounts</title>
+  <style>
+    body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 20px; }
+    input, select { padding: 8px; width: 60ch; max-width: 100%; }
+    label { display: block; margin-top: 10px; }
+    button { padding: 8px 12px; margin-top: 12px; }
+    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
+    .muted { color: #666; font-size: 12px; }
+    .row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .col { flex: 1 1 320px; min-width: 300px; }
+    .tag { padding: 2px 6px; border: 1px solid #ddd; border-radius: 10px; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <h1>Accounts</h1>
+    <a href="/" style="color: #007bff; text-decoration: none; font-size: 16px; padding: 8px 16px; border: 1px solid #007bff; border-radius: 4px;">
+      ← Back to Search
+    </a>
+  </div>
+  <div id="error-message" style="display: none; color: red; padding: 10px; margin: 10px 0; border: 1px solid #ffb3b3; border-radius: 4px; background-color: #fff0f0;"></div>
+  <p class="muted">Add Google and Microsoft accounts, then click Connect to complete OAuth.</p>
+  <div class="row">
+    <div class="col">
+      <h2>Add account</h2>
+      <label>Provider
+        <select id="provider">
+          <option value="google">Google</option>
+          <option value="microsoft">Microsoft</option>
+        </select>
+      </label>
+      <label>Alias
+        <input id="alias" placeholder="e.g., personal, work1" />
+      </label>
+      <label>Client ID
+        <input id="clientId" />
+      </label>
+      <label id="clientSecretLabel">Client Secret
+        <input id="clientSecret" />
+      </label>
+      <label id="tenantIdLabel" style="display:none">Tenant ID (Microsoft only, default: common)
+        <input id="tenantId" placeholder="common or tenant GUID" />
+      </label>
+      <label>Redirect URI
+        <input id="redirectUri" placeholder="http://localhost:5178/auth/{provider}/callback" />
+      </label>
+      <label>Scopes (comma-separated)
+        <input id="scopes" placeholder="auto-filled if left blank" />
+      </label>
+      <button onclick="addAccount()">Add</button>
+      <div id="addStatus" class="muted"></div>
+    </div>
+    <div class="col">
+      <h2>Existing accounts</h2>
+      <table>
+        <thead><tr><th>Provider</th><th>Alias</th><th>Connected</th><th>Actions</th></tr></thead>
+        <tbody id="acctRows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const providerEl = document.getElementById('provider');
+    const clientSecretLabel = document.getElementById('clientSecretLabel');
+    const tenantIdLabel = document.getElementById('tenantIdLabel');
+    const redirectUriEl = document.getElementById('redirectUri');
+
+    providerEl.addEventListener('change', () => {
+      const p = providerEl.value;
+      clientSecretLabel.style.display = 'block';
+      tenantIdLabel.style.display = (p === 'microsoft') ? 'block' : 'none';
+      redirectUriEl.placeholder = `http://localhost:5178/auth/${p}/callback`;
+    });
+
+    async function loadAccounts() {
+      const res = await fetch('/api/accounts');
+      const data = await res.json();
+      const rows = data.accounts || [];
+      const tbody = document.getElementById('acctRows');
+      tbody.innerHTML = '';
+      for (const a of rows) {
+        const tr = document.createElement('tr');
+        const status = a.connected ? 'Yes' : 'No';
+        tr.innerHTML = `
+          <td><span class="tag">${a.provider}</span></td>
+          <td>${a.alias}</td>
+          <td>${status}</td>
+          <td>
+            ${a.connected ? '' : `<a href="/auth/${a.provider}/start/${a.alias}">Connect</a>`}
+            <button data-provider="${a.provider}" data-alias="${a.alias}" class="editBtn">Edit</button>
+            <button data-provider="${a.provider}" data-alias="${a.alias}" class="deleteBtn" style="color: #dc3545; margin-left: 5px;">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        // Editor row
+        const editTr = document.createElement('tr');
+        editTr.style.display = 'none';
+        const col = document.createElement('td');
+        col.colSpan = 4;
+        col.innerHTML = `
+          <div class="muted">Update fields (leave blank to keep unchanged)</div>
+          <div class="row" style="margin-top:6px;">
+            <div class="col">
+              <label>Client ID<input class="upd-clientId" placeholder="${a.provider==='google'?'Google':'Microsoft'} Client ID"/></label>
+              <label>Redirect URI<input class="upd-redirectUri" placeholder="http://localhost:5178/auth/${a.provider}/callback"/></label>
+            </div>
+            <div class="col">
+              <label>Client Secret<input class="upd-clientSecret" placeholder="${a.provider==='google'?'Google':'Microsoft'} Client Secret"/></label>
+              ${a.provider==='microsoft' ? '<label>Tenant ID<input class="upd-tenantId" placeholder="common or tenant GUID"/></label>' : ''}
+              <label>Scopes (comma)<input class="upd-scopes" placeholder="leave blank to keep"/></label>
+            </div>
+          </div>
+          <button class="saveBtn">Save</button>
+          <button class="cancelBtn">Cancel</button>
+          <span class="muted msg"></span>
+        `;
+        editTr.appendChild(col);
+        tbody.appendChild(editTr);
+
+        const editBtn = tr.querySelector('.editBtn');
+        const saveBtn = col.querySelector('.saveBtn');
+        const cancelBtn = col.querySelector('.cancelBtn');
+        const msg = col.querySelector('.msg');
+        const inputs = {
+          clientId: col.querySelector('.upd-clientId'),
+          clientSecret: col.querySelector('.upd-clientSecret'),
+          tenantId: col.querySelector('.upd-tenantId'),
+          redirectUri: col.querySelector('.upd-redirectUri'),
+          scopes: col.querySelector('.upd-scopes'),
+        };
+
+        editBtn.addEventListener('click', () => { editTr.style.display = ''; });
+        cancelBtn.addEventListener('click', () => { editTr.style.display = 'none'; msg.textContent=''; });
+        saveBtn.addEventListener('click', async () => {
+          const updates = {};
+          if (inputs.clientId && inputs.clientId.value.trim()) updates.clientId = inputs.clientId.value.trim();
+          if (inputs.clientSecret && inputs.clientSecret.value.trim()) updates.clientSecret = inputs.clientSecret.value.trim();
+          if (inputs.tenantId && inputs.tenantId.value.trim()) updates.tenantId = inputs.tenantId.value.trim();
+          if (inputs.redirectUri && inputs.redirectUri.value.trim()) updates.redirectUri = inputs.redirectUri.value.trim();
+          if (inputs.scopes && inputs.scopes.value.trim()) updates.scopes = inputs.scopes.value.split(',').map(s=>s.trim()).filter(Boolean);
+          const res = await fetch('/api/accounts/update', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ provider: a.provider, alias: a.alias, updates })
+          });
+          if (res.ok) {
+            msg.textContent = 'Saved.';
+            editTr.style.display = 'none';
+            loadAccounts();
+          } else {
+            const err = await res.json().catch(()=>({}));
+            msg.textContent = 'Error: ' + (err.error || res.statusText);
+          }
+        });
+      }
+    }
+
+    async function addAccount() {
+      const provider = providerEl.value;
+      const alias = document.getElementById('alias').value.trim();
+      const clientId = document.getElementById('clientId').value.trim();
+      const clientSecret = document.getElementById('clientSecret').value.trim();
+      const tenantId = document.getElementById('tenantId').value.trim();
+      const redirectUri = document.getElementById('redirectUri').value.trim();
+      const scopesRaw = document.getElementById('scopes').value.trim();
+      const scopes = scopesRaw ? scopesRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+      
+      const updates = {
+        clientId,
+        clientSecret,
+        redirectUri,
+        scopes
+      };
+      
+      if (provider === 'microsoft') {
+        updates.tenantId = tenantId || 'common';
+      }
+
+      try {
+        const res = await fetch('/api/accounts/update', {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify({ 
+            provider, 
+            alias, 
+            updates 
+          })
+        });
+        
+        const msg = document.getElementById('addStatus');
+        if (res.ok) {
+          msg.textContent = 'Account added successfully. Now click Connect to complete OAuth.';
+          // Clear the form
+          document.getElementById('alias').value = '';
+          document.getElementById('clientId').value = '';
+          document.getElementById('clientSecret').value = '';
+          document.getElementById('tenantId').value = '';
+          document.getElementById('redirectUri').value = '';
+          document.getElementById('scopes').value = '';
+          // Reload the accounts list
+          loadAccounts();
+        } else {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || res.statusText);
+        }
+      } catch (error) {
+        const msg = document.getElementById('addStatus');
+        msg.textContent = 'Error: ' + (error.message || 'Failed to add account');
+      }
+    }
+
+    // Display error message if any
+    const urlParams = new URLSearchParams(window.location.search);
+    const error = urlParams.get('error');
+    const message = urlParams.get('message');
+    
+    if (error && message) {
+      const errorDiv = document.getElementById('error-message');
+      errorDiv.textContent = `Authentication Error: ${decodeURIComponent(message)}`;
+      errorDiv.style.display = 'block';
+      
+      // Clean up the URL
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+    
+    // Check for OAuth completion in URL
+    function checkOAuthStatus() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const provider = urlParams.get('provider');
+      const status = urlParams.get('status');
+      
+      if (provider && status === 'connected') {
+        // Show success message
+        const msg = document.getElementById('addStatus');
+        msg.textContent = `Successfully connected to ${provider} account!`;
+        msg.style.color = 'green';
+        
+        // Remove the query parameters from the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Force a full page reload to ensure all state is fresh
+        // This ensures the accounts list is properly refreshed
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+      }
+    }
+
+    // Check for OAuth completion when the page loads
+    document.addEventListener('DOMContentLoaded', () => {
+      checkOAuthStatus();
+    });
+
+    // Add event delegation for delete buttons
+    document.addEventListener('click', async (e) => {
+      if (e.target.classList.contains('deleteBtn')) {
+        const provider = e.target.dataset.provider;
+        const alias = e.target.dataset.alias;
+        
+        if (confirm(`Are you sure you want to delete the ${provider} account '${alias}'?`)) {
+          try {
+            const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}`, {
+              method: 'DELETE'
+            });
+            
+            if (response.ok) {
+              loadAccounts(); // Refresh the account list
+            } else {
+              const error = await response.json();
+              alert(`Failed to delete account: ${error.message || 'Unknown error'}`);
+            }
+          } catch (err) {
+            console.error('Error deleting account:', err);
+            alert('Failed to delete account. Please check the console for details.');
+          }
+        }
+      }
+    });
+
+    loadAccounts();
+  </script>
+</body>
+</html>

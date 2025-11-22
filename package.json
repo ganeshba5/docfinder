@@ -1,0 +1,28 @@
+{
+  "name": "docfinder",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "src/server.js",
+  "bin": {
+    "docfinder": "src/cli.js"
+  },
+  "scripts": {
+    "dev": "node src/server.js",
+    "cli": "node src/cli.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "express": "^4.19.2",
+    "fast-glob": "^3.3.2",
+    "fuse.js": "^7.0.0",
+    "winston": "^3.13.0",
+    "googleapis": "^133.0.0",
+    "@azure/msal-node": "^2.6.4",
+    "keytar": "^7.9.0",
+    "open": "^10.1.0",
+    "node-fetch": "^3.3.2",
+    "yaml": "^2.6.0"
+  }
+}

@@ -1,0 +1,289 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docfinder - Results</title>
+  <style>
+    body { 
+      font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
+      margin: 20px;
+    }
+    .header { margin-bottom: 20px; }
+    .filters { 
+      background: #f5f5f5; 
+      padding: 15px; 
+      border-radius: 8px; 
+      margin-bottom: 20px;
+    }
+    .filter-group { margin-bottom: 15px; }
+    .filter-group h3 { margin: 0 0 10px 0; }
+    .filter-row { display: flex; gap: 20px; margin-bottom: 10px; }
+    .filter-item { flex: 1; }
+    label { display: block; margin-bottom: 5px; font-weight: 500; }
+    input[type="text"], select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    th {
+      background-color: #f8f9fa;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sort-asc::after { content: " ↑"; }
+    th.sort-desc::after { content: " ↓"; }
+    tr:hover { background-color: #f8f9fa; }
+    a { 
+      color: #0366d6; 
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+    .muted { color: #6c757d; }
+    .back-link { 
+      display: inline-block; 
+      margin-bottom: 15px;
+      color: #0366d6;
+      text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <a href="/" class="back-link">← Back to search</a>
+  <div class="header">
+    <h1>Search Results</h1>
+    <div id="searchQuery" class="muted"></div>
+  </div>
+  
+  <div class="filters">
+    <div class="filter-row">
+      <div class="filter-item">
+        <label for="filenameFilter">Filename contains:</label>
+        <input type="text" id="filenameFilter" placeholder="Filter by filename...">
+      </div>
+      <div class="filter-item">
+        <label for="sourceFilter">Source:</label>
+        <select id="sourceFilter">
+          <option value="">All Sources</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="results-container">
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="title">Filename</th>
+          <th data-sort="source">Source</th>
+          <th data-sort="account">Account</th>
+          <th data-sort="modified">Modified</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody">
+        <!-- Will be populated by JavaScript -->
+      </tbody>
+    </table>
+    <div id="noResults" style="display: none; margin-top: 20px; text-align: center; color: #6c757d;">
+      No results found matching your filters.
+    </div>
+  </div>
+
+  <script>
+    let allResults = [];
+    let currentSort = { field: 'title', direction: 'asc' };
+
+    // Parse URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchTerm = urlParams.get('q') || '';
+    const sources = (urlParams.get('sources') || '').split(',').filter(Boolean);
+    const accounts = (urlParams.get('accounts') || '').split(',').filter(Boolean);
+
+    // Initialize the page
+    document.addEventListener('DOMContentLoaded', async () => {
+      document.getElementById('searchQuery').textContent = searchTerm ? `Results for: ${searchTerm}` : 'All files';
+      await loadResults();
+      setupEventListeners();
+    });
+
+    // Load search results
+    async function loadResults() {
+      try {
+        const params = new URLSearchParams();
+        if (searchTerm) params.set('name', searchTerm);
+        if (sources.length) params.set('sources', sources.join(','));
+        if (accounts.length) params.set('accounts', accounts.join(','));
+
+        const response = await fetch(`/api/search?${params.toString()}`);
+        const data = await response.json();
+        allResults = data.results || [];
+        
+        // Populate source filter dropdown
+        populateSourceFilter();
+        // Display initial results
+        filterAndSortResults();
+      } catch (error) {
+        console.error('Error loading results:', error);
+        alert('Failed to load search results. Please try again.');
+      }
+    }
+
+    // Populate source filter dropdown
+    function populateSourceFilter() {
+      const sourceFilter = document.getElementById('sourceFilter');
+      const sources = [...new Set(allResults.map(r => r.source))].sort();
+      
+      // Clear existing options except the first one
+      while (sourceFilter.options.length > 1) {
+        sourceFilter.remove(1);
+      }
+
+      // Add source options
+      sources.forEach(source => {
+        const option = document.createElement('option');
+        option.value = source;
+        option.textContent = source.replace(/-/g, ' ');
+        sourceFilter.appendChild(option);
+      });
+    }
+
+    // Filter and sort results based on current filters and sort
+    function filterAndSortResults() {
+      const filenameFilter = document.getElementById('filenameFilter').value.toLowerCase();
+      const sourceFilter = document.getElementById('sourceFilter').value;
+
+      // Filter results
+      let filtered = allResults.filter(result => {
+        const matchesFilename = result.title.toLowerCase().includes(filenameFilter);
+        const matchesSource = !sourceFilter || result.source === sourceFilter;
+        return matchesFilename && matchesSource;
+      });
+
+      // Sort results
+      filtered.sort((a, b) => {
+        let aValue = a[currentSort.field];
+        let bValue = b[currentSort.field];
+
+        // Handle undefined/null values
+        if (aValue === undefined || aValue === null) return 1;
+        if (bValue === undefined || bValue === null) return -1;
+
+        // Convert to string for comparison if needed
+        if (typeof aValue !== 'string') aValue = String(aValue);
+        if (typeof bValue !== 'string') bValue = String(bValue);
+
+        // Compare values
+        const comparison = aValue.localeCompare(bValue, undefined, { numeric: true });
+        return currentSort.direction === 'asc' ? comparison : -comparison;
+      });
+
+      // Update table
+      updateResultsTable(filtered);
+    }
+
+    // Update the results table with filtered and sorted data
+    function updateResultsTable(results) {
+      const tbody = document.getElementById('resultsBody');
+      const noResults = document.getElementById('noResults');
+      
+      // Clear existing rows
+      tbody.innerHTML = '';
+
+      if (results.length === 0) {
+        noResults.style.display = 'block';
+        return;
+      }
+
+      noResults.style.display = 'none';
+
+      // Add rows for each result
+      results.forEach(result => {
+        const row = document.createElement('tr');
+        
+        // Format modified date
+        const modifiedDate = result.modified ? 
+          new Date(result.modified).toLocaleString() : 
+          'Unknown';
+        
+        // Create link
+        const link = document.createElement('a');
+        link.href = result.source === 'local' ? `file://${result.path}` : result.url;
+        link.textContent = result.title;
+        link.target = '_blank';
+        
+        // Create cells
+        const titleCell = document.createElement('td');
+        titleCell.appendChild(link);
+        
+        const sourceCell = document.createElement('td');
+        sourceCell.textContent = result.source;
+        
+        const accountCell = document.createElement('td');
+        accountCell.textContent = result.account || 'N/A';
+        
+        const modifiedCell = document.createElement('td');
+        modifiedCell.textContent = modifiedDate;
+        
+        // Add cells to row
+        row.appendChild(titleCell);
+        row.appendChild(sourceCell);
+        row.appendChild(accountCell);
+        row.appendChild(modifiedCell);
+        
+        // Add row to table
+        tbody.appendChild(row);
+      });
+
+      // Update sort indicators
+      updateSortIndicators();
+    }
+
+    // Update sort indicators in table headers
+    function updateSortIndicators() {
+      const headers = document.querySelectorAll('th[data-sort]');
+      headers.forEach(header => {
+        header.classList.remove('sort-asc', 'sort-desc');
+        if (header.dataset.sort === currentSort.field) {
+          header.classList.add(`sort-${currentSort.direction}`);
+        }
+      });
+    }
+
+    // Set up event listeners
+    function setupEventListeners() {
+      // Filter inputs
+      document.getElementById('filenameFilter').addEventListener('input', filterAndSortResults);
+      document.getElementById('sourceFilter').addEventListener('change', filterAndSortResults);
+
+      // Sortable headers
+      document.querySelectorAll('th[data-sort]').forEach(header => {
+        header.addEventListener('click', () => {
+          const field = header.dataset.sort;
+          if (currentSort.field === field) {
+            // Toggle sort direction if clicking the same field
+            currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+          } else {
+            // Sort by new field, default to ascending
+            currentSort.field = field;
+            currentSort.direction = 'asc';
+          }
+          filterAndSortResults();
+        });
+      });
+    }
+  </script>
+</body>
+</html>

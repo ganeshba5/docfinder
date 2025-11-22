@@ -1,0 +1,220 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Docfinder</title>
+  <style>
+    body { 
+      font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
+      margin: 20px;
+      line-height: 1.5;
+      color: #333;
+    }
+    .search-container {
+      display: flex;
+      align-items: center;
+      margin: 20px 0;
+      gap: 10px;
+    }
+    #q {
+      padding: 10px 12px;
+      width: 60ch;
+      max-width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    button {
+      padding: 10px 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.2s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .manage-accounts {
+      margin-left: 10px;
+      color: #007bff;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    .manage-accounts:hover {
+      text-decoration: underline;
+    }
+    .filters {
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+    }
+    .filter-section {
+      margin-bottom: 25px;
+    }
+    .filter-section:last-child {
+      margin-bottom: 0;
+    }
+    .filter-section h3 {
+      margin: 0 0 12px 0;
+      font-size: 16px;
+      color: #333;
+    }
+    .filter-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .filter-item {
+      display: flex;
+      align-items: center;
+      padding: 6px 0;
+    }
+    .filter-item input[type="checkbox"] {
+      margin-right: 8px;
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .filter-item label {
+      margin: 0;
+      font-size: 14px;
+      cursor: pointer;
+      flex: 1;
+    }
+    .muted {
+      color: #6c757d;
+      font-size: 12px;
+    }
+    @media (max-width: 768px) {
+      .search-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      button, .manage-accounts {
+        margin: 10px 0 0 0;
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Docfinder</h1>
+  <div class="search-container">
+    <input id="q" type="text" placeholder="Search by filename..." />
+    <button onclick="doSearch()">Search</button>
+    <a href="/accounts.html" class="manage-accounts">Manage Accounts</a>
+  </div>
+  
+  <div class="filters">
+    <div class="filter-section">
+      <h3>Sources</h3>
+      <div class="filter-grid">
+        <div class="filter-item">
+          <input type="checkbox" id="local" class="src" value="local" checked>
+          <label for="local">Local files</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="google-drive" class="src" value="google-drive">
+          <label for="google-drive">Google Drive</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="gmail-attachment" class="src" value="gmail-attachment">
+          <label for="gmail-attachment">Gmail Attachments</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="microsoft-onedrive" class="src" value="microsoft-onedrive">
+          <label for="microsoft-onedrive">OneDrive</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="microsoft-sharepoint" class="src" value="microsoft-sharepoint">
+          <label for="microsoft-sharepoint">SharePoint</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="microsoft-teams" class="src" value="microsoft-teams">
+          <label for="microsoft-teams">Microsoft Teams</label>
+        </div>
+        <div class="filter-item">
+          <input type="checkbox" id="outlook-attachment" class="src" value="microsoft-outlook-attachment">
+          <label for="outlook-attachment">Outlook Attachments</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-section">
+      <h3>Accounts</h3>
+      <div id="acctFilters" class="filter-grid">
+        <!-- Account checkboxes will be added here by JavaScript -->
+      </div>
+    </div>
+  </div>
+  <script>
+    // Handle search form submission
+    async function doSearch() {
+      const q = document.getElementById('q').value;
+      const srcs = Array.from(document.querySelectorAll('.src:checked')).map(el => el.value);
+      const accts = Array.from(document.querySelectorAll('.acct:checked')).map(el => el.value);
+      
+      // Build URL with parameters
+      const params = new URLSearchParams();
+      if (q) params.set('q', q);
+      if (srcs.length) params.set('sources', srcs.join(','));
+      if (accts.length) params.set('accounts', accts.join(','));
+      
+      // Redirect to results page with query parameters
+      window.location.href = `/results.html?${params.toString()}`;
+    }
+
+    // Load and display connected accounts
+    async function loadAccounts() {
+      try {
+        const res = await fetch('/api/accounts');
+        const data = await res.json();
+        const container = document.getElementById('acctFilters');
+        container.innerHTML = '';
+        
+        for (const a of (data.accounts || [])) {
+          const div = document.createElement('div');
+          div.className = 'filter-item';
+          
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.className = 'acct';
+          cb.id = `acct-${a.provider}-${a.alias}`;
+          cb.value = a.alias;
+          
+          const label = document.createElement('label');
+          label.htmlFor = `acct-${a.provider}-${a.alias}`;
+          label.textContent = `${a.provider}: ${a.alias}`;
+          
+          div.appendChild(cb);
+          div.appendChild(label);
+          container.appendChild(div);
+        }
+      } catch (error) {
+        console.error('Error loading accounts:', error);
+      }
+    }
+
+    // Allow pressing Enter in the search input to trigger search
+    document.getElementById('q').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        doSearch();
+      }
+    });
+
+    // Load accounts when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+      loadAccounts();
+      
+      // Focus the search input on page load
+      document.getElementById('q').focus();
+    });
+  </script>
+</body>
+</html>
