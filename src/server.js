@@ -99,6 +99,23 @@ app.post('/api/accounts/update', (req, res) => {
   }
 });
 
+// Disconnect account (remove tokens but keep configuration)
+app.post('/api/accounts/:provider/:alias/disconnect', async (req, res) => {
+  try {
+    const { provider, alias } = req.params;
+    if (!provider || !alias) return res.status(400).json({ error: 'Missing provider or alias' });
+    
+    const { deleteTokens } = require('./tokenStore');
+    await deleteTokens(provider, alias);
+    
+    logger.info('Successfully disconnected account', { provider, alias });
+    res.json({ success: true });
+  } catch (e) {
+    logger.error('Error disconnecting account: %s', e.message, { error: e });
+    res.status(500).json({ error: 'Failed to disconnect account' });
+  }
+});
+
 // Delete account
 app.delete('/api/accounts/:provider/:alias', async (req, res) => {
   try {

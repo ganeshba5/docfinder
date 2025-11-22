@@ -53,7 +53,7 @@
       <label>Scopes (comma-separated)
         <input id="scopes" placeholder="auto-filled if left blank" />
       </label>
-      <button onclick="addAccount()">Add</button>
+      <button onclick="addAccount()" style="margin-top: 10px;">➕ Add Account</button>
       <div id="addStatus" class="muted"></div>
     </div>
     <div class="col">
@@ -92,9 +92,12 @@
           <td>${a.alias}</td>
           <td>${status}</td>
           <td>
-            ${a.connected ? '' : `<a href="/auth/${a.provider}/start/${a.alias}">Connect</a>`}
-            <button data-provider="${a.provider}" data-alias="${a.alias}" class="editBtn">Edit</button>
-            <button data-provider="${a.provider}" data-alias="${a.alias}" class="deleteBtn" style="color: #dc3545; margin-left: 5px;">Delete</button>
+            ${a.connected ? 
+              `<button data-provider="${a.provider}" data-alias="${a.alias}" class="disconnectBtn" style="color: #ff9800; margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Disconnect">🔄</button>` : 
+              `<a href="/auth/${a.provider}/start/${a.alias}" class="connectBtn" style="margin: 0 5px; color: #28a745; text-decoration: none; font-size: 1.2em;" title="Connect">🔗</a>`
+            }
+            <button data-provider="${a.provider}" data-alias="${a.alias}" class="editBtn" style="margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Edit">✏️</button>
+            <button data-provider="${a.provider}" data-alias="${a.alias}" class="deleteBtn" style="color: #dc3545; margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Delete">🗑️</button>
           </td>
         `;
         tbody.appendChild(tr);
@@ -117,8 +120,8 @@
               <label>Scopes (comma)<input class="upd-scopes" placeholder="leave blank to keep"/></label>
             </div>
           </div>
-          <button class="saveBtn">Save</button>
-          <button class="cancelBtn">Cancel</button>
+          <button class="saveBtn" style="margin-right: 10px;">💾 Save</button>
+          <button class="cancelBtn" style="margin-right: 10px;">❌ Cancel</button>
           <span class="muted msg"></span>
         `;
         editTr.appendChild(col);
@@ -258,8 +261,33 @@
       checkOAuthStatus();
     });
 
-    // Add event delegation for delete buttons
+    // Add event delegation for delete and disconnect buttons
     document.addEventListener('click', async (e) => {
+      // Handle disconnect button
+      if (e.target.classList.contains('disconnectBtn')) {
+        const provider = e.target.dataset.provider;
+        const alias = e.target.dataset.alias;
+        
+        if (confirm(`Are you sure you want to disconnect the ${provider} account '${alias}'? This will remove the access token but keep the account configuration.`)) {
+          try {
+            const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}/disconnect`, {
+              method: 'POST'
+            });
+            
+            if (response.ok) {
+              loadAccounts(); // Refresh the account list
+            } else {
+              const error = await response.json();
+              alert(`Failed to disconnect account: ${error.message || 'Unknown error'}`);
+            }
+          } catch (err) {
+            console.error('Error disconnecting account:', err);
+            alert('Failed to disconnect account. Please check the console for details.');
+          }
+        }
+      }
+      
+      // Handle delete button
       if (e.target.classList.contains('deleteBtn')) {
         const provider = e.target.dataset.provider;
         const alias = e.target.dataset.alias;
