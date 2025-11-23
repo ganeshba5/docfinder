@@ -116,7 +116,7 @@
       <h3>Sources</h3>
       <div class="filter-grid">
         <div class="filter-item">
-          <input type="checkbox" id="local" class="src" value="local" checked>
+          <input type="checkbox" id="local" class="src" value="local">
           <label for="local">Local files</label>
         </div>
         <div class="filter-item">
@@ -154,11 +154,34 @@
     </div>
   </div>
   <script>
+    // Save selected sources to localStorage
+    function saveSelectedSources() {
+      const srcs = Array.from(document.querySelectorAll('.src:checked')).map(el => el.value);
+      localStorage.setItem('selectedSources', JSON.stringify(srcs));
+    }
+
+    // Load selected sources from localStorage and update checkboxes
+    function loadSelectedSources() {
+      const savedSources = localStorage.getItem('selectedSources');
+      if (savedSources) {
+        const sources = JSON.parse(savedSources);
+        document.querySelectorAll('.src').forEach(checkbox => {
+          checkbox.checked = sources.includes(checkbox.value);
+        });
+      } else {
+        // Default to local files if no saved selection
+        document.getElementById('local').checked = true;
+      }
+    }
+
     // Handle search form submission
     async function doSearch() {
       const q = document.getElementById('q').value;
       const srcs = Array.from(document.querySelectorAll('.src:checked')).map(el => el.value);
       const accts = Array.from(document.querySelectorAll('.acct:checked')).map(el => el.value);
+      
+      // Save selected sources
+      saveSelectedSources();
       
       // Build URL with parameters
       const params = new URLSearchParams();
@@ -171,34 +194,39 @@
     }
 
     // Load and display connected accounts
-    async function loadAccounts() {
-      try {
-        const res = await fetch('/api/accounts');
-        const data = await res.json();
-        const container = document.getElementById('acctFilters');
-        container.innerHTML = '';
-        
-        for (const a of (data.accounts || [])) {
-          const div = document.createElement('div');
-          div.className = 'filter-item';
-          
-          const cb = document.createElement('input');
-          cb.type = 'checkbox';
-          cb.className = 'acct';
-          cb.id = `acct-${a.provider}-${a.alias}`;
-          cb.value = a.alias;
-          
-          const label = document.createElement('label');
-          label.htmlFor = `acct-${a.provider}-${a.alias}`;
-          label.textContent = `${a.provider}: ${a.alias}`;
-          
-          div.appendChild(cb);
-          div.appendChild(label);
-          container.appendChild(div);
-        }
-      } catch (error) {
-        console.error('Error loading accounts:', error);
-      }
+    function loadAccounts() {
+      return new Promise((resolve) => {
+        fetch('/api/accounts')
+          .then(res => res.json())
+          .then(data => {
+            const container = document.getElementById('acctFilters');
+            container.innerHTML = '';
+            
+            for (const a of (data.accounts || [])) {
+              const div = document.createElement('div');
+              div.className = 'filter-item';
+              
+              const cb = document.createElement('input');
+              cb.type = 'checkbox';
+              cb.className = 'acct';
+              cb.id = `acct-${a.provider}-${a.alias}`;
+              cb.value = a.alias;
+              
+              const label = document.createElement('label');
+              label.htmlFor = `acct-${a.provider}-${a.alias}`;
+              label.textContent = `${a.provider}: ${a.alias}`;
+              
+              div.appendChild(cb);
+              div.appendChild(label);
+              container.appendChild(div);
+            }
+            resolve();
+          })
+          .catch(error => {
+            console.error('Error loading accounts:', error);
+            resolve(); // Still resolve to continue with page initialization
+          });
+      });
     }
 
     // Allow pressing Enter in the search input to trigger search
@@ -208,13 +236,26 @@
       }
     });
 
-    // Load accounts when the page loads
-    document.addEventListener('DOMContentLoaded', function() {
-      loadAccounts();
+    // Function to initialize the page
+    function initializePage() {
+      // Load selected sources immediately
+      loadSelectedSources();
       
-      // Focus the search input on page load
-      document.getElementById('q').focus();
-    });
+      // Set up event listeners for source checkboxes
+      document.querySelectorAll('.src').forEach(checkbox => {
+        checkbox.addEventListener('change', saveSelectedSources);
+      });
+      
+      // Load accounts in the background
+      loadAccounts();
+    }
+
+    // Initialize the page when the DOM is fully loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializePage);
+    } else {
+      initializePage();
+    }
   </script>
 </body>
 </html>
