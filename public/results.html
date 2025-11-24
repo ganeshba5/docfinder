@@ -80,6 +80,12 @@
           <option value="">All Sources</option>
         </select>
       </div>
+      <div class="filter-item">
+        <label for="accountFilter">Account:</label>
+        <select id="accountFilter">
+          <option value="">All Accounts</option>
+        </select>
+      </div>
     </div>
   </div>
 
@@ -131,8 +137,8 @@
         const data = await response.json();
         allResults = data.results || [];
         
-        // Populate source filter dropdown
-        populateSourceFilter();
+        // Populate filter dropdowns
+        populateFilters();
         // Display initial results
         filterAndSortResults();
       } catch (error) {
@@ -141,14 +147,21 @@
       }
     }
 
-    // Populate source filter dropdown
-    function populateSourceFilter() {
+    // Populate source and account filter dropdowns
+    function populateFilters() {
       const sourceFilter = document.getElementById('sourceFilter');
+      const accountFilter = document.getElementById('accountFilter');
+      
+      // Get unique sources and accounts
       const sources = [...new Set(allResults.map(r => r.source))].sort();
+      const accounts = [...new Set(allResults.map(r => r.account).filter(Boolean))].sort();
       
       // Clear existing options except the first one
       while (sourceFilter.options.length > 1) {
         sourceFilter.remove(1);
+      }
+      while (accountFilter.options.length > 1) {
+        accountFilter.remove(1);
       }
 
       // Add source options
@@ -158,18 +171,28 @@
         option.textContent = source.replace(/-/g, ' ');
         sourceFilter.appendChild(option);
       });
+
+      // Add account options
+      accounts.forEach(account => {
+        const option = document.createElement('option');
+        option.value = account;
+        option.textContent = account;
+        accountFilter.appendChild(option);
+      });
     }
 
     // Filter and sort results based on current filters and sort
     function filterAndSortResults() {
       const filenameFilter = document.getElementById('filenameFilter').value.toLowerCase();
       const sourceFilter = document.getElementById('sourceFilter').value;
+      const accountFilter = document.getElementById('accountFilter').value;
 
       // Filter results
       let filtered = allResults.filter(result => {
         const matchesFilename = result.title.toLowerCase().includes(filenameFilter);
         const matchesSource = !sourceFilter || result.source === sourceFilter;
-        return matchesFilename && matchesSource;
+        const matchesAccount = !accountFilter || result.account === accountFilter;
+        return matchesFilename && matchesSource && matchesAccount;
       });
 
       // Sort results
@@ -264,22 +287,22 @@
 
     // Set up event listeners
     function setupEventListeners() {
-      // Filter inputs
+      // Add event listeners for filters
       document.getElementById('filenameFilter').addEventListener('input', filterAndSortResults);
       document.getElementById('sourceFilter').addEventListener('change', filterAndSortResults);
-
-      // Sortable headers
+      document.getElementById('accountFilter').addEventListener('change', filterAndSortResults);
+      
+      // Add event listeners for sorting
       document.querySelectorAll('th[data-sort]').forEach(header => {
         header.addEventListener('click', () => {
           const field = header.dataset.sort;
           if (currentSort.field === field) {
-            // Toggle sort direction if clicking the same field
             currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
           } else {
-            // Sort by new field, default to ascending
             currentSort.field = field;
             currentSort.direction = 'asc';
           }
+          updateSortIndicators();
           filterAndSortResults();
         });
       });

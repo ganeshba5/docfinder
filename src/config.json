@@ -1,0 +1,21 @@
+{
+  "providers": {
+    "google": {
+      "enabled": false,
+      "accounts": [
+        {
+          "alias": "Artellegent",
+          "clientId": "57512997217-t7q4ubcevt4pjrnp6doueb9t3il0p3lt.apps.googleusercontent.com",
+          "clientSecret": "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",
+          "redirectUri": "http://localhost:5178/auth/google/callback"
+        },
+        {
+          "alias": "ganeshba",
+          "clientId": "57512997217-t7q4ubcevt4pjrnp6doueb9t3il0p3lt.apps.googleusercontent.com",
+          "clientSecret": "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",
+          "redirectUri": "http://localhost:5178/auth/google/callback"
+        }
+      ]
+    }
+  }
+}

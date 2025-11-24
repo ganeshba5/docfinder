@@ -1,12 +1,45 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
+
+// Application modules
 const logger = require('./logger');
-const googleAuth = require('./auth/google');
-const msAuth = require('./auth/microsoft');
 const { getTokens, deleteTokens } = require('./tokenStore');
 const config = require('./config');
 const { unifiedSearchByName } = require('./search/unified');
 const { buildAuthUrl, handleCallback } = require('./auth/microsoft');
+const googleAuth = require('./auth/google');
+const msAuth = require('./auth/microsoft');
+
+// Load .env file at startup
+function loadEnvFile() {
+  const envPath = path.join(__dirname, '..', '.env');
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    envContent.split('\n').forEach(line => {
+      const match = line.match(/^([^=]+)=(.*)$/);
+      if (match) {
+        const key = match[1].trim();
+        let value = match[2].trim();
+        
+        // Handle JSON values
+        if ((value.startsWith('[') && value.endsWith(']')) || 
+            (value.startsWith('{') && value.endsWith('}'))) {
+          try {
+            process.env[key] = value; // Store as string, we'll parse when needed
+          } catch (e) {
+            process.env[key] = value;
+          }
+        } else {
+          process.env[key] = value;
+        }
+      }
+    });
+  }
+}
+
+// Initialize environment
+loadEnvFile();
 
 const app = express();
 
@@ -339,6 +372,8 @@ app.get('/api/search', async (req, res) => {
 });
 
 // Add or update account
+// In server.js, around line 342
+// Add or update account
 app.post('/api/accounts', (req, res) => {
   try {
     const { provider, account } = req.body || {};
@@ -349,36 +384,50 @@ app.post('/api/accounts', (req, res) => {
       return res.status(400).json({ error: 'Invalid provider' });
     }
 
-    const cfg = saveConfig((c) => {
-      // Initialize providers object if it doesn't exist
-      if (!c.providers) c.providers = {};
-      
-      // Initialize provider if it doesn't exist
-      if (!c.providers[provider]) {
-        c.providers[provider] = { enabled: true, accounts: [] };
-      }
-      
-      const prov = c.providers[provider];
-      const accounts = prov.accounts || [];
-      const idx = accounts.findIndex(a => a.alias === account.alias);
-      
-      if (idx === -1) {
-        // Add new account
-        accounts.push(account);
-      } else {
-        // Update existing account
-        const current = accounts[idx];
-        accounts[idx] = { ...current, ...account };
-      }
-      
-      prov.accounts = accounts;
-      return c;
-    });
+    const envVarName = `${provider.toUpperCase()}_ACCOUNTS`;
+    const currentAccounts = process.env[envVarName] ? JSON.parse(process.env[envVarName]) : [];
+    
+    // Check if account already exists
+    const existingIndex = currentAccounts.findIndex(a => a.alias === account.alias);
+    const updatedAccounts = [...currentAccounts];
+    
+    if (existingIndex >= 0) {
+      // Update existing account
+      updatedAccounts[existingIndex] = {
+        ...updatedAccounts[existingIndex],
+        ...account
+      };
+    } else {
+      // Add new account
+      updatedAccounts.push(account);
+    }
+
+    // Update the .env file
+    const envPath = path.join(__dirname, '..', '.env');
+    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf8') : '';
+    
+    // Update or add the accounts line
+    const accountsLine = `${envVarName}=${JSON.stringify(updatedAccounts)}`;
+    const envVarRegex = new RegExp(`^${envVarName}=.*$`, 'm');
+    
+    if (envVarRegex.test(envContent)) {
+      envContent = envContent.replace(envVarRegex, accountsLine);
+    } else {
+      envContent = `${envContent}\n${accountsLine}\n`;
+    }
+    
+    fs.writeFileSync(envPath, envContent, 'utf8');
+    
+    // Update process.env
+    process.env[envVarName] = JSON.stringify(updatedAccounts);
     
     res.json({ success: true });
   } catch (e) {
     logger.error('Error saving account:', e);
-    res.status(500).json({ error: e.message || 'Failed to save account' });
+    res.status(500).json({ 
+      error: e.message || 'Failed to save account',
+      details: process.env.NODE_ENV === 'development' ? e.stack : undefined
+    });
   }
 });
 
@@ -414,57 +463,86 @@ app.post('/api/accounts/:provider/:alias/disconnect', async (req, res) => {
 app.delete('/api/accounts/:provider/:alias', async (req, res) => {
   try {
     const { provider, alias } = req.params;
-    if (!provider || !alias) {
-      return res.status(400).json({ error: 'Missing required parameters' });
-    }
-    if (!['google', 'microsoft'].includes(provider)) {
-      return res.status(400).json({ error: 'Invalid provider' });
-    }
-
-    // First try to delete tokens
-    try {
-      await deleteTokens(provider, alias);
-      logger.info(`Deleted tokens for ${provider} account:`, alias);
-    } catch (tokenError) {
-      logger.warn(`Error deleting tokens for ${provider} account ${alias}:`, tokenError);
-      // Continue with account deletion even if token deletion fails
-    }
-
-    // Then delete the account from config
-    const cfg = saveConfig((c) => {
-      if (!c.providers?.[provider]) {
-        throw new Error('Provider not configured');
-      }
-      
-      const accounts = c.providers[provider].accounts || [];
-      const idx = accounts.findIndex(a => a.alias === alias);
-      
-      if (idx === -1) {
-        throw new Error('Account not found');
-      }
-      
-      // Remove the account
-      accounts.splice(idx, 1);
-      c.providers[provider].accounts = accounts;
-      
-      // Disable provider if no accounts left
-      if (accounts.length === 0) {
-        c.providers[provider].enabled = false;
-      }
-      
-      return c;
-    });
+    const decodedAlias = decodeURIComponent(alias);
+    const envVarName = `${provider.toUpperCase()}_ACCOUNTS`;
     
-    res.json({ success: true });
+    logger.info(`Deleting account: ${provider}/${decodedAlias}`);
+    
+    if (!process.env[envVarName]) {
+      return res.status(404).json({ error: 'No accounts found for this provider' });
+    }
+
+    const accounts = JSON.parse(process.env[envVarName]);
+    const updatedAccounts = accounts.filter(acc => acc.alias !== decodedAlias);
+    
+    if (updatedAccounts.length === accounts.length) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+
+    // Update .env file
+    const envPath = path.join(__dirname, '..', '.env');
+    let envContent = fs.readFileSync(envPath, 'utf8');
+    
+    if (updatedAccounts.length > 0) {
+      const accountsLine = `${envVarName}=${JSON.stringify(updatedAccounts)}`;
+      const envVarRegex = new RegExp(`^${envVarName}=.*$`, 'm');
+      envContent = envVarRegex.test(envContent)
+        ? envContent.replace(envVarRegex, accountsLine)
+        : `${envContent}\n${accountsLine}\n`;
+    } else {
+      // Remove the line if no accounts left
+      const envVarRegex = new RegExp(`^${envVarName}=.*(\r?\n|$)`, 'm');
+      envContent = envContent.replace(envVarRegex, '');
+    }
+    
+    // Write changes back to .env file
+    fs.writeFileSync(envPath, envContent, 'utf8');
+    
+    // Update process.env
+    if (updatedAccounts.length > 0) {
+      process.env[envVarName] = JSON.stringify(updatedAccounts);
+    } else {
+      delete process.env[envVarName];
+    }
+    
+    // Delete tokens for this account
+    await deleteTokens(provider, decodedAlias);
+
+    logger.info(`Successfully deleted account: ${provider}/${decodedAlias}`);
+    
+    res.json({ 
+      success: true,
+      message: 'Account deleted successfully'
+    });
   } catch (error) {
-    logger.error('Error deleting account:', error);
+    logger.error('Error deleting account:', {
+      error: error.message,
+      stack: error.stack,
+      provider: req.params.provider,
+      alias: req.params.alias
+    });
     res.status(500).json({ 
-      error: error.message || 'Failed to delete account' 
+      error: error.message || 'Failed to delete account',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
 
-// Get all accounts with token status
+/**
+ * Get all accounts with their token status
+ * Returns accounts from both Google and Microsoft providers
+ */
+// Helper function to parse accounts from environment variable
+const parseAccounts = (envVar) => {
+  if (!envVar) return [];
+  try {
+    return typeof envVar === 'string' ? JSON.parse(envVar) : [];
+  } catch (e) {
+    logger.error('Error parsing accounts from env:', e);
+    return [];
+  }
+};
+
 app.get('/api/accounts', async (req, res) => {
   try {
     const accounts = {
@@ -472,37 +550,60 @@ app.get('/api/accounts', async (req, res) => {
       microsoft: []
     };
 
-    // Get accounts from config
-    if (config.providers) {
-      for (const [provider, providerConfig] of Object.entries(config.providers)) {
-        if (providerConfig?.accounts?.length) {
-          // Check token status for each account
-          for (const account of providerConfig.accounts) {
-            try {
-              const tokens = await getTokens(provider, account.alias);
-              accounts[provider].push({
-                ...account,
-                hasToken: !!(tokens?.access_token && 
-                           (!tokens.expiry_date || tokens.expiry_date > Date.now()))
-              });
-            } catch (error) {
-              logger.error(`Error checking token status for ${provider} account ${account.alias}:`, error);
-              accounts[provider].push({
-                ...account,
-                hasToken: false
-              });
-            }
+    // Get Google accounts from environment
+    const googleAccounts = parseAccounts(process.env.GOOGLE_ACCOUNTS);
+    if (googleAccounts.length > 0) {
+      accounts.google = await Promise.all(
+        googleAccounts.map(async (account) => {
+          try {
+            const tokens = await getTokens('google', account.alias);
+            return {
+              alias: account.alias,
+              hasToken: !!(tokens?.access_token)
+            };
+          } catch (error) {
+            logger.error(`Error getting tokens for Google account ${account.alias}:`, error);
+            return {
+              alias: account.alias,
+              hasToken: false
+            };
           }
-        }
-      }
+        })
+      );
     }
 
+    // Get Microsoft accounts from environment
+    const microsoftAccounts = parseAccounts(process.env.MICROSOFT_ACCOUNTS);
+    if (microsoftAccounts.length > 0) {
+      accounts.microsoft = await Promise.all(
+        microsoftAccounts.map(async (account) => {
+          try {
+            const tokens = await getTokens('microsoft', account.alias);
+            return {
+              alias: account.alias,
+              hasToken: !!(tokens?.access_token)
+            };
+          } catch (error) {
+            logger.error(`Error getting tokens for Microsoft account ${account.alias}:`, error);
+            return {
+              alias: account.alias,
+              hasToken: false
+            };
+          }
+        })
+      );
+    }
+    
     res.json(accounts);
   } catch (error) {
-    logger.error('Error getting accounts:', error);
+    logger.error('Error in /api/accounts:', {
+      error: error.message,
+      stack: error.stack
+    });
+    
     res.status(500).json({ 
-      error: 'Failed to get accounts',
-      details: error.message 
+      error: 'Failed to load accounts',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
@@ -533,9 +634,9 @@ process.on('uncaughtException', (error) => {
   // process.exit(1);
 });
 
+// Save config is no longer the primary method for account management
+// Keeping it for backward compatibility
 function saveConfig(updater) {
-  const fs = require('fs');
-  const path = require('path');
   const configPath = path.join(__dirname, 'config.json');
   
   try {
@@ -553,11 +654,20 @@ function saveConfig(updater) {
   }
 }
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-});
+// Keep for backward compatibility
+function updateEnvironmentVariables(config) {
+  // This function is now a no-op as we manage env vars directly
+  logger.debug('Environment variables are now managed directly in .env file');
+}
 
-module.exports = app;
+// At the very bottom of server.js, after all route definitions
+if (require.main === module) {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT}`);
+  });
+}
+
+// Export the Express app for testing
+module.exports = { app };
 

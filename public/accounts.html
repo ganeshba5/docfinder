@@ -120,98 +120,142 @@
       to { transform: translateX(0); opacity: 1; }
     }
   </style>
-  <style>
-  /* Add these styles to your existing styles */
+ <style>
+  /* Add Font Awesome if not already included */
+  @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
+
   .accounts-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 10px;
-    margin-top: 20px;
+    width: 100%;
+    max-width: 1000px;
+    margin: 20px auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   }
   
   .account-row {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1.5fr 1fr 2fr;
     align-items: center;
-    gap: 15px;
-    padding: 12px 15px;
-    background: white;
-    border-radius: 6px;
-    border: 1px solid #e0e0e0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
   }
   
-  .account-name {
+  .account-row:last-child {
+    border-bottom: none;
+  }
+  
+  .account-row:hover {
+    background-color: #f9f9f9;
+  }
+  
+  .account-row.header {
+    background-color: #f8f9fa;
     font-weight: 600;
+    border-bottom: 2px solid #e0e0e0;
+  }
+  
+  .provider-cell {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   
-  .account-status {
+  .provider-cell i {
+    font-size: 1.2em;
+    width: 20px;
+    text-align: center;
+  }
+  
+  .google-icon { color: #DB4437; }
+  .microsoft-icon { color: #00A4EF; }
+  
+  .status-cell {
+    display: flex;
+    align-items: center;
+  }
+  
+  .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    font-size: 13px;
-    padding: 3px 10px;
+    gap: 6px;
+    padding: 4px 10px;
     border-radius: 12px;
+    font-size: 0.85em;
     font-weight: 500;
   }
   
-  .status-connected {
+  .status-badge.connected {
     background-color: #e8f5e9;
     color: #2e7d32;
   }
   
-  .status-disconnected {
+  .status-badge.disconnected {
     background-color: #ffebee;
     color: #c62828;
   }
   
-  .account-actions {
+  .actions-cell {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+    padding-right: 10px;
   }
   
-  .btn-icon {
+  .icon-button {
     width: 32px;
     height: 32px;
     border-radius: 50%;
+    border: none;
+    background: none;
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    cursor: pointer;
-    border: none;
-    background: none;
-    color: #555;
     transition: all 0.2s;
+    color: #666;
   }
   
-  .btn-icon:hover {
-    background-color: #f5f5f5;
+  .icon-button:hover {
+    background-color: #f0f0f0;
   }
   
-  .btn-connect {
-    color: #28a745;
+  .icon-button.connect {
+    color: #4caf50;
   }
   
-  .btn-disconnect {
-    color: #dc3545;
+  .icon-button.disconnect {
+    color: #f44336;
   }
   
-  .btn-edit {
-    color: #007bff;
+  .icon-button.edit {
+    color: #2196f3;
   }
   
-  .btn-delete {
-    color: #6c757d;
+  .icon-button.delete {
+    color: #f44336;
   }
   
-  .btn-icon i {
+  .icon-button i {
     font-size: 16px;
   }
-  </style>
+  
+  .actions-header {
+    text-align: right;
+    padding-right: 20px;
+  }
+  
+  .error {
+    color: #d32f2f;
+    padding: 12px;
+    background-color: #ffebee;
+    border-radius: 4px;
+    margin: 10px 0;
+    text-align: center;
+  }
+</style>
 
 <!-- Add Font Awesome for icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
@@ -225,39 +269,34 @@
       Back to Search
     </a>
   </div>
-  <h1>Manage Accounts</h1>
   
-  <div class="account-form">
-    <h2>Add/Update Account</h2>
-    <div class="form-group">
-      <label for="provider">Provider:</label>
-      <select id="provider">
-        <option value="google">Google</option>
-        <option value="microsoft">Microsoft</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label for="alias">Alias:</label>
-      <input type="text" id="alias" placeholder="e.g., work, personal">
-    </div>
-    <div class="form-group">
-      <label for="clientId">Client ID:</label>
-      <input type="text" id="clientId" placeholder="Enter client ID">
-    </div>
-    <div class="form-group">
-      <label for="clientSecret">Client Secret:</label>
-      <input type="password" id="clientSecret" placeholder="Enter client secret">
-    </div>
-    <div class="form-group" id="tenantIdGroup" style="display: none;">
-      <label for="tenantId">Tenant ID:</label>
-      <input type="text" id="tenantId" placeholder="common or your tenant ID">
-    </div>
-    <div class="form-group">
-      <label for="redirectUri">Redirect URI:</label>
-      <input type="text" id="redirectUri" value="http://localhost:5178/auth/callback">
-    </div>
-    <button onclick="saveAccount()" style="background-color: #007bff; color: white;">Save Account</button>
+<h1>Manage Accounts</h1>
+
+<div class="account-form">
+  <h2>Add/Update Account</h2>
+  <form id="accountForm" onsubmit="saveAccount(event)" class="form-container">
+  <div class="form-group">
+    <label for="provider">Provider:</label>
+    <select id="provider" name="provider" required>
+      <option value="">Select a provider</option>
+      <option value="google">Google</option>
+      <option value="microsoft">Microsoft</option>
+    </select>
   </div>
+  <div class="form-group">
+    <label for="alias">Alias:</label>
+    <input type="text" id="alias" name="alias" placeholder="e.g., work, personal" required>
+  </div>
+  <!-- Hidden fields for sensitive data (handled by server from env vars) -->
+  <div class="form-group" style="display: none;">
+    <input type="hidden" id="clientId" name="clientId">
+    <input type="hidden" id="clientSecret" name="clientSecret">
+    <input type="hidden" id="tenantId" name="tenantId" value="common">
+    <input type="hidden" id="redirectUri" name="redirectUri">
+  </div>
+  <button type="submit" class="btn">Save Account</button>
+</form>
+</div>
 
   <div class="account-list">
     <h2>Existing Accounts</h2>
@@ -266,10 +305,16 @@
 
   <script>
     // Toggle Microsoft-specific fields
-    document.getElementById('provider').addEventListener('change', function() {
-      document.getElementById('tenantIdGroup').style.display = 
-        this.value === 'microsoft' ? 'block' : 'none';
-    });
+document.getElementById('provider').addEventListener('change', function() {
+  const provider = this.value;
+  const tenantIdGroup = document.getElementById('tenantIdGroup');
+  
+  // Safely handle the tenant ID group visibility
+  if (tenantIdGroup) {
+    tenantIdGroup.style.display = provider === 'microsoft' ? 'block' : 'none';
+  }
+  // Removed the form reset from here
+});
 
     // Global error handler
     window.addEventListener('error', (event) => {
@@ -286,27 +331,36 @@
     });
 
     // Load accounts on page load
-// Add this to your accounts.html, preferably in a script tag at the bottom of the body
-// In accounts.html, update the DOMContentLoaded event listener to this:
-    document.addEventListener('DOMContentLoaded', function() {
-      // Load accounts when the page first loads
-      loadAccounts();
-      
-      // Set up the message handler for OAuth callbacks
-      setupMessageHandler();
-      
-      // Keep the message listener for AUTH_SUCCESS
-      window.addEventListener('message', function(event) {
-        // Verify the origin for security
-        if (event.origin !== window.location.origin) return;
-        
-        if (event.data.type === 'AUTH_SUCCESS') {
-          console.log('Authentication successful:', event.data);
-          // Reload the accounts list to show the updated status
-          loadAccounts();
-        }
-      });
+    // Add this to your accounts.html, preferably in a script tag at the bottom of the body
+    // In accounts.html, update the DOMContentLoaded event listener to this:
+    // Update the provider change event listener
+document.addEventListener('DOMContentLoaded', function() {
+  // Load accounts when the page first loads
+  loadAccounts();
+  
+  // Set up the provider change listener
+  const providerSelect = document.getElementById('provider');
+  if (providerSelect) {
+    providerSelect.addEventListener('change', function() {
+      const tenantIdGroup = document.getElementById('tenantIdGroup');
+      if (tenantIdGroup) {
+        tenantIdGroup.style.display = this.value === 'microsoft' ? 'block' : 'none';
+      }
     });
+  }
+
+  // Set up the message handler for OAuth callbacks
+  window.addEventListener('message', function(event) {
+    // Verify the origin for security
+    if (event.origin !== window.location.origin) return;
+    
+    if (event.data.type === 'AUTH_SUCCESS') {
+      console.log('Authentication successful:', event.data);
+      // Reload the accounts list to show the updated status
+      loadAccounts();
+    }
+  });
+});
 
     function setupMessageHandler() {
       window.addEventListener('message', (event) => {
@@ -364,12 +418,57 @@
       }
     }
 
-    function editAccount(provider, alias) {
-      // Implement edit functionality
-      // You can open a modal or navigate to an edit page
-      console.log(`Edit ${provider} account: ${alias}`);
-      // Example: window.location.href = `/edit-account.html?provider=${provider}&alias=${encodeURIComponent(alias)}`;
+ async function editAccount(provider, alias) {
+  console.log('editAccount called with:', { provider, alias });
+  
+  try {
+    // Get the save button and update its state
+    const saveButton = document.querySelector('#accountForm button[type="submit"]');
+    console.log('Save button found:', !!saveButton);
+    
+    // Set the form to edit mode
+    const providerSelect = document.getElementById('provider');
+    const aliasInput = document.getElementById('alias');
+    
+    console.log('Form elements:', { 
+      providerSelect: !!providerSelect, 
+      aliasInput: !!aliasInput 
+    });
+    
+    if (!providerSelect || !aliasInput) {
+      throw new Error('Required form elements not found');
     }
+    
+    providerSelect.value = provider;
+    aliasInput.value = alias;
+    
+    // Update the save button to indicate edit mode
+    saveButton.textContent = 'Update Account';
+    saveButton.setAttribute('data-editing', 'true');
+    saveButton.setAttribute('data-original-alias', alias);
+    
+    // Scroll to the form for better UX
+    const formElement = document.querySelector('.account-form');
+    console.log('Form element found:', !!formElement);
+    if (formElement) {
+      formElement.scrollIntoView({ behavior: 'smooth' });
+    }
+    
+    // Show a notification
+    console.log('Showing notification for editing account:', alias);
+    showNotification(`Editing account: ${alias}`, 'info');
+    
+  } catch (error) {
+    console.error('Error in editAccount:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    showNotification(`Error: ${error.message}`, 'error');
+  }
+}
+
     async function checkAccountStatus(provider, alias) {
       try {
         const response = await fetch(`/api/accounts/token/${provider}/${encodeURIComponent(alias)}`);
@@ -388,6 +487,8 @@
     }
 
     function createAccountElement(provider, accountData, isConnected) {
+      console.log('Creating account element:', { provider, accountData, isConnected });
+      
       const accountRow = document.createElement('div');
       accountRow.className = 'account-row';
       accountRow.id = `${provider}-${accountData.alias}`;
@@ -396,93 +497,209 @@
       const statusIcon = isConnected ? 'fa-check-circle' : 'fa-times-circle';
       const statusText = isConnected ? 'Connected' : 'Disconnected';
       
-      accountRow.innerHTML = `
-        <div class="account-name">
-          <i class="fab fa-${provider}"></i>
-          <span>${accountData.alias || 'No alias'}</span>
-        </div>
-        
-        <div class="account-status ${statusClass}">
-          <i class="fas ${statusIcon}"></i>
-          <span>${statusText}</span>
-        </div>
-        
-        <div class="account-provider">
-          ${provider.charAt(0).toUpperCase() + provider.slice(1)}
-        </div>
-        
-        <div class="account-actions">
-          ${isConnected ? 
-            `<button class="btn-icon btn-disconnect" title="Disconnect" 
-              onclick="disconnectAccount('${provider}', '${accountData.alias}')">
-              <i class="fas fa-plug"></i>
-            </button>` : 
-            `<button class="btn-icon btn-connect" title="Connect" 
-              onclick="connectAccount('${provider}', '${accountData.alias}')">
-              <i class="fas fa-plug"></i>
-            </button>`
-          }
-          <button class="btn-icon btn-edit" title="Edit" 
-            onclick="editAccount('${provider}', '${accountData.alias}')">
-            <i class="fas fa-edit"></i>
-          </button>
-          <button class="btn-icon btn-delete" title="Delete" 
-            onclick="deleteAccount('${provider}', '${accountData.alias}')">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
+      // Create elements directly instead of using innerHTML for better control
+      const accountName = document.createElement('div');
+      accountName.className = 'account-name';
+      accountName.innerHTML = `
+        <i class="fab fa-${provider}"></i>
+        <span>${escapeHtml(accountData.alias || 'No alias')}</span>
       `;
+      
+      const accountStatus = document.createElement('div');
+      accountStatus.className = `account-status ${statusClass}`;
+      accountStatus.innerHTML = `
+        <i class="fas ${statusIcon}"></i>
+        <span>${statusText}</span>
+      `;
+      
+      const accountProvider = document.createElement('div');
+      accountProvider.className = 'account-provider';
+      accountProvider.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
+      
+      const accountActions = document.createElement('div');
+      accountActions.className = 'account-actions';
+      
+      // Create action buttons
+      const connectButton = document.createElement('button');
+      connectButton.className = `btn-icon ${isConnected ? 'btn-disconnect' : 'btn-connect'}`;
+      connectButton.title = isConnected ? 'Disconnect' : 'Connect';
+      connectButton.innerHTML = '<i class="fas fa-plug"></i>';
+      connectButton.onclick = () => {
+        if (isConnected) {
+          disconnectAccount(provider, accountData.alias);
+        } else {
+          connectAccount(provider, accountData.alias);
+        }
+      };
+      
+      const editButton = document.createElement('button');
+      editButton.className = 'btn-icon btn-edit';
+      editButton.title = 'Edit';
+      editButton.innerHTML = '<i class="fas fa-edit"></i>';
+      editButton.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Edit button clicked for:', { provider, alias: accountData.alias });
+        editAccount(provider, accountData.alias);
+      };
+      
+      const deleteButton = document.createElement('button');
+      deleteButton.className = 'btn-icon btn-delete';
+      deleteButton.title = 'Delete';
+      deleteButton.innerHTML = '<i class="fas fa-trash"></i>';
+      deleteButton.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to delete account '${accountData.alias}'?`)) {
+          deleteAccount(provider, accountData.alias);
+        }
+      };
+      
+      // Append buttons to actions container
+      accountActions.appendChild(connectButton);
+      accountActions.appendChild(editButton);
+      accountActions.appendChild(deleteButton);
+      
+      // Append all elements to the row
+      accountRow.appendChild(accountName);
+      accountRow.appendChild(accountStatus);
+      accountRow.appendChild(accountProvider);
+      accountRow.appendChild(accountActions);
       
       return accountRow;
     }
+    
+async function loadAccounts() {
+  const container = document.getElementById('accounts');
+  if (!container) {
+    console.error('Accounts container not found');
+    return;
+  }
 
-    async function loadAccounts() {
-      try {
-        const container = document.getElementById('accounts');
-        container.innerHTML = '<p>Loading accounts...</p>';
-
-        const response = await fetch('/api/accounts');
-        if (!response.ok) {
-          throw new Error('Failed to load accounts');
-        }
-
-        const data = await response.json();
+  try {
+    container.innerHTML = '<p>Loading accounts...</p>';
+    
+    const response = await fetch('/api/accounts');
+    console.log('Response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error response:', errorText);
+      throw new Error(`Server returned ${response.status}: ${errorText || 'Unknown error'}`);
+    }
+    
+    const data = await response.json();
+    console.log('Received accounts data:', data);
+    
+    // Clear the container
+    container.innerHTML = '';
+    
+    // Handle case where data is empty or not in expected format
+    if (!data || typeof data !== 'object') {
+      console.warn('Invalid accounts data format:', data);
+      container.innerHTML = '<p>No accounts found or invalid data format.</p>';
+      return;
+    }
+    
+    // Create a grid for accounts
+    const grid = document.createElement('div');
+    grid.className = 'accounts-grid';
+    
+    // Add header row
+    const header = document.createElement('div');
+    header.className = 'account-row header';
+    header.innerHTML = `
+      <div>Provider</div>
+      <div>Account</div>
+      <div>Status</div>
+      <div class="actions-header">Actions</div>
+    `;
+    grid.appendChild(header);
+    
+    let hasAnyAccounts = false;
+    
+    // Process each provider
+    for (const [provider, accounts] of Object.entries(data)) {
+      if (!Array.isArray(accounts) || accounts.length === 0) {
+        console.warn(`No accounts or invalid format for provider ${provider}`, accounts);
+        continue;
+      }
+      
+      hasAnyAccounts = true;
+      
+      for (const account of accounts) {
+        console.log('Processing account:', account);
         
-        // Create grid container
-        container.innerHTML = `
-          <div class="accounts-grid">
-            <div class="account-row" style="font-weight: bold; background-color: #f8f9fa;">
-              <div>Account</div>
-              <div>Status</div>
-              <div>Provider</div>
-              <div style="text-align: right;">Actions</div>
-            </div>
+        if (!account || typeof account !== 'object') {
+          console.warn('Invalid account format:', account);
+          continue;
+        }
+        
+        const row = document.createElement('div');
+        row.className = 'account-row';
+        
+        const isConnected = account.hasToken === true;
+        const safeAlias = String(account.alias || 'N/A')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        
+        const safeProvider = String(provider || '').toLowerCase();
+        const providerName = safeProvider.charAt(0).toUpperCase() + safeProvider.slice(1);
+        
+        row.innerHTML = `
+          <div class="provider-cell">
+            <i class="fab fa-${safeProvider} ${safeProvider}-icon"></i>
+            <span>${providerName}</span>
+          </div>
+          <div class="alias-cell">${safeAlias}</div>
+          <div class="status-cell">
+            <span class="status-badge ${isConnected ? 'connected' : 'disconnected'}">
+              <i class="fas ${isConnected ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+              ${isConnected ? 'Connected' : 'Disconnected'}
+            </span>
+          </div>
+          <div class="actions-cell">
+            <button class="icon-button ${isConnected ? 'disconnect' : 'connect'}" 
+                    onclick="${isConnected ? 'disconnectAccount' : 'connectAccount'}('${safeProvider}', '${account.alias.replace(/'/g, "\\'")}')"
+                    title="${isConnected ? 'Disconnect' : 'Connect'}">
+              <i class="fas fa-plug"></i>
+            </button>
+            <button class="icon-button edit" 
+                    onclick="editAccount('${safeProvider}', '${account.alias.replace(/'/g, "\\'")}')"
+                    title="Edit">
+              <i class="fas fa-edit"></i>
+            </button>
+            <button class="icon-button delete" 
+                    onclick="deleteAccount('${safeProvider}', '${account.alias.replace(/'/g, "\\'")}')"
+                    title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
         `;
-        
-        const grid = container.querySelector('.accounts-grid');
-
-        for (const [provider, accounts] of Object.entries(data)) {
-          if (accounts && Array.isArray(accounts) && accounts.length > 0) {
-            for (const account of accounts) {
-              try {
-                const accountData = typeof account === 'string' ? JSON.parse(account) : account;
-                const isConnected = await checkAccountStatus(provider, accountData.alias);
-                const accountElement = createAccountElement(provider, accountData, isConnected);
-                grid.appendChild(accountElement);
-              } catch (e) {
-                console.error('Error processing account:', account, e);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error loading accounts:', error);
-        const container = document.getElementById('accounts');
-        container.innerHTML = `<p class="error">Error loading accounts: ${error.message}</p>`;
+        grid.appendChild(row);
       }
     }
-      
+    
+    if (!hasAnyAccounts) {
+      container.innerHTML = '<p>No accounts found. Add an account to get started.</p>';
+      return;
+    }
+    
+    container.appendChild(grid);
+    
+  } catch (error) {
+    console.error('Error loading accounts:', error);
+    container.innerHTML = `
+      <div class="error-message">
+        <p>Error loading accounts: ${error.message}</p>
+        <button onclick="loadAccounts()" class="btn retry-button">
+          <i class="fas fa-sync-alt"></i> Retry
+        </button>
+      </div>
+    `;
+  }
+}
+
     async function connectAccount(provider, alias) {
           try {
             const button = event.target;
@@ -568,82 +785,113 @@
       }
     }
 
-    async function saveAccount() {
-      const provider = document.getElementById('provider').value;
-      const alias = document.getElementById('alias').value.trim();
-      const clientId = document.getElementById('clientId').value.trim();
-      const clientSecret = document.getElementById('clientSecret').value.trim();
-      const tenantId = document.getElementById('tenantId').value.trim() || 'common';
-      const redirectUri = document.getElementById('redirectUri').value.trim();
+    // In accounts.html, update the saveAccount function
+async function saveAccount(event) {
+    event.preventDefault();
+    console.log('Save account function called'); // Debug log
 
-      if (!alias || !clientId || !clientSecret) {
-        showNotification('Please fill in all required fields', 'error');
+    const provider = document.getElementById('provider').value;
+    const alias = document.getElementById('alias').value.trim();
+    const saveButton = document.querySelector('#accountForm button[type="submit"]');
+    const isEditing = saveButton.getAttribute('data-editing') === 'true';
+    const originalAlias = saveButton.getAttribute('data-original-alias');
+
+    console.log('Form data:', { provider, alias, isEditing, originalAlias }); // Debug log
+
+    if (!alias) {
+        showNotification('Please enter an alias', 'error');
         return;
-      }
+    }
 
-      const account = {
-        alias,
-        clientId,
-        clientSecret,
-        redirectUri
-      };
+    try {
+        const url = '/api/accounts';
+        console.log('Sending request to:', url);
 
-      if (provider === 'microsoft') {
-        account.tenantId = tenantId;
-      }
-
-      try {
-        const response = await fetch('/api/accounts', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            provider,
-            account
-          }),
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ 
+                provider, 
+                account: { 
+                    alias,
+                    // For existing accounts, include the original alias to identify which account to update
+                    ...(isEditing && originalAlias && { originalAlias }),
+                    clientId: '',
+                    clientSecret: '',
+                    tenantId: provider === 'microsoft' ? 'common' : '',
+                    redirectUri: ''
+                } 
+            }),
         });
 
+        console.log('Response status:', response.status); // Debug log
+
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to save account');
+            const errorData = await response.json().catch(() => ({}));
+            console.error('Server error response:', errorData); // Debug log
+            throw new Error(errorData.error || `Failed to ${isEditing ? 'update' : 'save'} account`);
         }
 
-        showNotification('Account saved successfully', 'success');
-        document.getElementById('alias').value = '';
-        document.getElementById('clientId').value = '';
-        document.getElementById('clientSecret').value = '';
+        const responseData = await response.json();
+        console.log('Save successful, response:', responseData); // Debug log
+
+        // Reset form
+        document.getElementById('accountForm').reset();
         
-        // Reload accounts
+        // Reset form state
+        saveButton.textContent = 'Save Account';
+        saveButton.removeAttribute('data-editing');
+        saveButton.removeAttribute('data-original-alias');
+        
+        // Show success notification
+        showNotification(`Account ${isEditing ? 'updated' : 'saved'} successfully`, 'success');
+        
+        // Refresh the accounts list
+        console.log('Refreshing accounts list...'); // Debug log
         await loadAccounts();
-      } catch (error) {
-        console.error('Error saving account:', error);
-        showNotification(`Error saving account: ${error.message}`, 'error');
+        console.log('Accounts list refreshed'); // Debug log
+        
+    } catch (error) {
+        console.error(`Error ${isEditing ? 'updating' : 'saving'} account:`, error);
+        showNotification(error.message, 'error');
+    }
+}
+
+async function deleteAccount(provider, alias) {
+  if (!confirm(`Are you sure you want to delete ${alias}? This cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    console.log(`Deleting account: ${provider}/${alias}`); // Debug log
+    const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json'
       }
+    });
+
+    const responseData = await response.json(); // Always parse JSON first
+    console.log('Delete response:', responseData); // Debug log
+
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to delete account');
     }
 
-    async function deleteAccount(provider, alias) {
-      if (!confirm(`Are you sure you want to delete ${alias}? This cannot be undone.`)) {
-        return;
-      }
+    showNotification('Account deleted successfully', 'success');
+    await loadAccounts(); // Refresh the accounts list
+  } catch (error) {
+    console.error('Error deleting account:', {
+      error: error.message,
+      stack: error.stack
+    });
+    showNotification(`Error deleting account: ${error.message}`, 'error');
+  }
+}
 
-      try {
-        const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}`, {
-          method: 'DELETE'
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to delete account');
-        }
-
-        showNotification('Account deleted successfully', 'success');
-        await loadAccounts();
-      } catch (error) {
-        console.error('Error deleting account:', error);
-        showNotification(`Error deleting account: ${error.message}`, 'error');
-      }
-    }
-  </script>
+</script>
 </body>
 </html>
