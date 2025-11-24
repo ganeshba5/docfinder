@@ -128,11 +128,11 @@ const keychainStore = {
   async get(provider, alias) {
     const keyStr = key(provider, alias);
     logOperation('keychain_get', provider, alias);
-    console.log(`[DEBUG] Looking for key: ${keyStr} in keychain`);
+    logger.debug(`Looking for key: ${keyStr} in keychain`);
     
     try {
       const result = await keytar.getPassword(SERVICE, keyStr);
-      console.log(`[DEBUG] Keychain lookup result for ${keyStr}:`, result ? 'FOUND' : 'NOT FOUND');
+      logger.debug(`Keychain lookup result for ${keyStr}: ${result ? 'FOUND' : 'NOT FOUND'}`);
       
       if (!result) {
         logOperation('keychain_not_found', provider, alias);

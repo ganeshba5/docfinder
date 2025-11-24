@@ -18,9 +18,9 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('/api/accounts/token/:provider/:alias', async (req, res) => {
   try {
     const { provider, alias } = req.params;
-    console.log(`[DEBUG] Token check for ${provider}:${alias}`);
+    logger.debug(`Token check for ${provider}:${alias}`);
     const xtokens = await getTokens(provider, alias);
-    console.log(`[DEBUG] Tokens for ${provider}:${alias}:`, xtokens ? 'EXISTS' : 'NULL');
+    logger.debug(`Tokens for ${provider}:${alias}: ${xtokens ? 'EXISTS' : 'NULL'}`);
     if (!provider || !alias) {
       return res.status(400).json({ error: 'Missing required parameters' });
     }
