@@ -1,6 +1,6 @@
-const { google } = require('googleapis');
+const { OAuth2Client } = require('google-auth-library');
 const logger = require('../logger');
-const { getTokens, saveTokens } = require('../tokenStore');
+const tokenStore = require('../tokenStore');
 
 function getAccount(cfg, alias) {
   const accounts = cfg?.providers?.google?.accounts || [];
@@ -8,81 +8,150 @@ function getAccount(cfg, alias) {
 }
 
 function makeClient(account) {
-  const oauth2Client = new google.auth.OAuth2(
+  if (!account || !account.clientId || !account.clientSecret) {
+    throw new Error('Invalid Google account configuration');
+  }
+  
+  return new OAuth2Client(
     account.clientId,
     account.clientSecret,
     account.redirectUri
   );
-  return oauth2Client;
 }
 
 function buildAuthUrl(cfg, alias) {
-  const account = getAccount(cfg, alias);
-  if (!account) throw new Error(`Google account not found: ${alias}`);
-  const client = makeClient(account);
-  const scopes = account.scopes && account.scopes.length ? account.scopes : [
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/gmail.readonly',
-  ];
-  const url = client.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
-    scope: scopes,
-    state: JSON.stringify({ provider: 'google', alias }),
-  });
-  return url;
+  try {
+    const account = getAccount(cfg, alias);
+    if (!account) {
+      throw new Error(`Google account not found: ${alias}`);
+    }
+
+    const client = makeClient(account);
+    const scopes = account.scopes || [
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/gmail.readonly',
+    ];
+
+    return client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: scopes,
+      state: JSON.stringify({ provider: 'google', alias }),
+    });
+  } catch (error) {
+    logger.error('Error building Google auth URL:', error);
+    throw error;
+  }
 }
 
-async function handleCallback(cfg, code, stateStr) {
+async function handleCallback(config, code, state) {
   try {
-    logger.info('Starting Google OAuth callback', { state: stateStr });
-    const state = JSON.parse(stateStr || '{}');
-    const alias = state.alias;
+    // Parse state to get provider and alias
+    const stateData = JSON.parse(state);
+    const { alias } = stateData;
     
     if (!alias) {
       throw new Error('Missing alias in OAuth state');
     }
 
-    const account = getAccount(cfg, alias);
+    // Get the account configuration
+    const account = getAccount(config, alias);
     if (!account) {
       throw new Error(`No Google account found with alias: ${alias}`);
     }
 
-    logger.info('Found Google account for alias', { alias, clientId: account.clientId });
+    logger.info('Processing Google OAuth callback', { alias });
 
-    const client = makeClient(account);
-    const { tokens } = await client.getToken(code).catch(error => {
-      logger.error('Error getting tokens', { error: error.message, stack: error.stack });
-      throw new Error(`Failed to get tokens: ${error.message}`);
+    // Get the OAuth2 client
+    const oauth2Client = makeClient(account);
+
+    // Exchange the authorization code for tokens
+    const { tokens } = await oauth2Client.getToken(code).catch(error => {
+      logger.error('Error exchanging code for tokens:', error);
+      throw new Error(`Failed to exchange code for tokens: ${error.message}`);
     });
 
-    if (!tokens) {
-      throw new Error('No tokens returned from Google');
+    if (!tokens || !tokens.access_token) {
+      throw new Error('No access token received from Google');
     }
 
-    logger.info('Saving Google tokens', { alias, hasRefreshToken: !!tokens.refresh_token });
-    await saveTokens('google', alias, tokens);
-    logger.info('Successfully saved Google tokens', { alias });
-    return { alias };
+    logger.info('Google OAuth tokens received', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiryDate: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null
+    });
+    
+    // Save the tokens
+    await tokenStore.saveTokens('google', alias, {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expiry_date: tokens.expiry_date
+    });
+
+    // Verify the tokens were saved
+    const savedTokens = await tokenStore.getTokens('google', alias);
+    if (!savedTokens || !savedTokens.access_token) {
+      throw new Error('Failed to verify token storage');
+    }
+
+    logger.info('Google OAuth completed successfully', { alias });
+    return { success: true, alias };
 
   } catch (error) {
     logger.error('Error in Google OAuth callback', { 
-      error: error.message, 
-      stack: error.stack,
-      state: stateStr
+      error: error.message,
+      stack: error.stack
     });
     throw error;
   }
 }
 
 async function getAuthorizedClient(cfg, alias) {
-  const account = getAccount(cfg, alias);
-  if (!account) throw new Error(`Google account not found: ${alias}`);
-  const tokens = await getTokens('google', alias);
-  if (!tokens) return null;
-  const client = makeClient(account);
-  client.setCredentials(tokens);
-  return client;
+  try {
+    if (!alias) {
+      throw new Error('Missing required parameter: alias');
+    }
+
+    logger.info('Getting authorized client for Google account', { alias });
+    
+    const account = getAccount(cfg, alias);
+    if (!account) {
+      throw new Error(`Google account not found: ${alias}`);
+    }
+
+    const tokens = await tokenStore.getTokens('google', alias);
+    if (!tokens || !tokens.access_token) {
+      logger.warn('No valid tokens found for Google account', { alias });
+      return null;
+    }
+
+    const client = makeClient(account);
+    client.setCredentials(tokens);
+
+    // Verify the credentials are still valid
+    try {
+      await client.getAccessToken();
+      logger.debug('Successfully refreshed Google access token', { alias });
+      return client;
+    } catch (error) {
+      logger.warn('Failed to refresh Google access token', { 
+        alias,
+        error: error.message
+      });
+      return null;
+    }
+  } catch (error) {
+    logger.error('Error getting authorized Google client', {
+      alias,
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
 }
 
-module.exports = { buildAuthUrl, handleCallback, getAuthorizedClient };
+module.exports = { 
+  buildAuthUrl, 
+  handleCallback, 
+  getAuthorizedClient 
+};

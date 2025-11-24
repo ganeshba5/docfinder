@@ -1,318 +1,649 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Docfinder • Accounts</title>
+  <title>Manage Accounts - DocFinder</title>
   <style>
-    body { font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 20px; }
-    input, select { padding: 8px; width: 60ch; max-width: 100%; }
-    label { display: block; margin-top: 10px; }
-    button { padding: 8px 12px; margin-top: 12px; }
-    table { border-collapse: collapse; margin-top: 20px; width: 100%; }
-    th, td { border-bottom: 1px solid #eee; padding: 8px; text-align: left; }
-    .muted { color: #666; font-size: 12px; }
-    .row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .col { flex: 1 1 320px; min-width: 300px; }
-    .tag { padding: 2px 6px; border: 1px solid #ddd; border-radius: 10px; font-size: 12px; }
+    body { 
+      font-family: Arial, sans-serif; 
+      max-width: 800px; 
+      margin: 0 auto; 
+      padding: 20px; 
+      line-height: 1.6;
+    }
+    .account-form { 
+      background: #f8f9fa; 
+      padding: 20px; 
+      border-radius: 8px; 
+      margin-bottom: 20px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-group { 
+      margin-bottom: 15px; 
+      display: flex;
+      align-items: center;
+    }
+    label { 
+      display: inline-block; 
+      width: 120px; 
+      font-weight: 600;
+    }
+    input, select { 
+      padding: 8px; 
+      width: 300px; 
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    button { 
+      padding: 8px 15px; 
+      margin-right: 10px; 
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    button:hover {
+      opacity: 0.9;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .btn-connect {
+      background-color: #28a745;
+      color: white;
+    }
+    .btn-disconnect {
+      background-color: #dc3545;
+      color: white;
+    }
+    .btn-delete {
+      background-color: #6c757d;
+      color: white;
+    }
+    .account-list { 
+      margin-top: 30px; 
+    }
+    .account { 
+      background: white;
+      padding: 15px; 
+      margin: 10px 0; 
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .account-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .account-actions {
+      display: flex;
+      gap: 10px;
+    }
+    .account-status {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+    .status-connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    .status-disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      border-radius: 4px;
+      color: white;
+      z-index: 1000;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      animation: slideIn 0.3s ease-out;
+    }
+    .notification.success {
+      background-color: #28a745;
+    }
+    .notification.error {
+      background-color: #dc3545;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
   </style>
+  <style>
+  /* Add these styles to your existing styles */
+  .accounts-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  .account-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  
+  .account-name {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .account-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+  }
+  
+  .status-connected {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+  
+  .status-disconnected {
+    background-color: #ffebee;
+    color: #c62828;
+  }
+  
+  .account-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  
+  .btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: #555;
+    transition: all 0.2s;
+  }
+  
+  .btn-icon:hover {
+    background-color: #f5f5f5;
+  }
+  
+  .btn-connect {
+    color: #28a745;
+  }
+  
+  .btn-disconnect {
+    color: #dc3545;
+  }
+  
+  .btn-edit {
+    color: #007bff;
+  }
+  
+  .btn-delete {
+    color: #6c757d;
+  }
+  
+  .btn-icon i {
+    font-size: 16px;
+  }
+  </style>
+
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-    <h1>Accounts</h1>
-    <a href="/" style="color: #007bff; text-decoration: none; font-size: 16px; padding: 8px 16px; border: 1px solid #007bff; border-radius: 4px;">
-      ← Back to Search
+  <div style="margin-bottom: 20px;">
+    <a href="/" style="display: inline-flex; align-items: center; text-decoration: none; color: #007bff; font-weight: 500;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="margin-right: 5px;">
+        <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+      </svg>
+      Back to Search
     </a>
   </div>
-  <div id="error-message" style="display: none; color: red; padding: 10px; margin: 10px 0; border: 1px solid #ffb3b3; border-radius: 4px; background-color: #fff0f0;"></div>
-  <p class="muted">Add Google and Microsoft accounts, then click Connect to complete OAuth.</p>
-  <div class="row">
-    <div class="col">
-      <h2>Add account</h2>
-      <label>Provider
-        <select id="provider">
-          <option value="google">Google</option>
-          <option value="microsoft">Microsoft</option>
-        </select>
-      </label>
-      <label>Alias
-        <input id="alias" placeholder="e.g., personal, work1" />
-      </label>
-      <label>Client ID
-        <input id="clientId" />
-      </label>
-      <label id="clientSecretLabel">Client Secret
-        <input id="clientSecret" />
-      </label>
-      <label id="tenantIdLabel" style="display:none">Tenant ID (Microsoft only, default: common)
-        <input id="tenantId" placeholder="common or tenant GUID" />
-      </label>
-      <label>Redirect URI
-        <input id="redirectUri" placeholder="http://localhost:5178/auth/{provider}/callback" />
-      </label>
-      <label>Scopes (comma-separated)
-        <input id="scopes" placeholder="auto-filled if left blank" />
-      </label>
-      <button onclick="addAccount()" style="margin-top: 10px;">➕ Add Account</button>
-      <div id="addStatus" class="muted"></div>
+  <h1>Manage Accounts</h1>
+  
+  <div class="account-form">
+    <h2>Add/Update Account</h2>
+    <div class="form-group">
+      <label for="provider">Provider:</label>
+      <select id="provider">
+        <option value="google">Google</option>
+        <option value="microsoft">Microsoft</option>
+      </select>
     </div>
-    <div class="col">
-      <h2>Existing accounts</h2>
-      <table>
-        <thead><tr><th>Provider</th><th>Alias</th><th>Connected</th><th>Actions</th></tr></thead>
-        <tbody id="acctRows"></tbody>
-      </table>
+    <div class="form-group">
+      <label for="alias">Alias:</label>
+      <input type="text" id="alias" placeholder="e.g., work, personal">
     </div>
+    <div class="form-group">
+      <label for="clientId">Client ID:</label>
+      <input type="text" id="clientId" placeholder="Enter client ID">
+    </div>
+    <div class="form-group">
+      <label for="clientSecret">Client Secret:</label>
+      <input type="password" id="clientSecret" placeholder="Enter client secret">
+    </div>
+    <div class="form-group" id="tenantIdGroup" style="display: none;">
+      <label for="tenantId">Tenant ID:</label>
+      <input type="text" id="tenantId" placeholder="common or your tenant ID">
+    </div>
+    <div class="form-group">
+      <label for="redirectUri">Redirect URI:</label>
+      <input type="text" id="redirectUri" value="http://localhost:5178/auth/callback">
+    </div>
+    <button onclick="saveAccount()" style="background-color: #007bff; color: white;">Save Account</button>
+  </div>
+
+  <div class="account-list">
+    <h2>Existing Accounts</h2>
+    <div id="accounts">Loading accounts...</div>
   </div>
 
   <script>
-    const providerEl = document.getElementById('provider');
-    const clientSecretLabel = document.getElementById('clientSecretLabel');
-    const tenantIdLabel = document.getElementById('tenantIdLabel');
-    const redirectUriEl = document.getElementById('redirectUri');
-
-    providerEl.addEventListener('change', () => {
-      const p = providerEl.value;
-      clientSecretLabel.style.display = 'block';
-      tenantIdLabel.style.display = (p === 'microsoft') ? 'block' : 'none';
-      redirectUriEl.placeholder = `http://localhost:5178/auth/${p}/callback`;
+    // Toggle Microsoft-specific fields
+    document.getElementById('provider').addEventListener('change', function() {
+      document.getElementById('tenantIdGroup').style.display = 
+        this.value === 'microsoft' ? 'block' : 'none';
     });
 
-    async function loadAccounts() {
-      const res = await fetch('/api/accounts');
-      const data = await res.json();
-      const rows = data.accounts || [];
-      const tbody = document.getElementById('acctRows');
-      tbody.innerHTML = '';
-      for (const a of rows) {
-        const tr = document.createElement('tr');
-        const status = a.connected ? 'Yes' : 'No';
-        tr.innerHTML = `
-          <td><span class="tag">${a.provider}</span></td>
-          <td>${a.alias}</td>
-          <td>${status}</td>
-          <td>
-            ${a.connected ? 
-              `<button data-provider="${a.provider}" data-alias="${a.alias}" class="disconnectBtn" style="color: #ff9800; margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Disconnect">🔄</button>` : 
-              `<a href="/auth/${a.provider}/start/${a.alias}" class="connectBtn" style="margin: 0 5px; color: #28a745; text-decoration: none; font-size: 1.2em;" title="Connect">🔗</a>`
-            }
-            <button data-provider="${a.provider}" data-alias="${a.alias}" class="editBtn" style="margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Edit">✏️</button>
-            <button data-provider="${a.provider}" data-alias="${a.alias}" class="deleteBtn" style="color: #dc3545; margin: 0 5px; border: none; background: none; cursor: pointer; font-size: 1.2em;" title="Delete">🗑️</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
+    // Global error handler
+    window.addEventListener('error', (event) => {
+      console.error('Global error:', event.error || event.message);
+      showNotification(event.message || 'An error occurred', 'error');
+      return false;
+    });
 
-        // Editor row
-        const editTr = document.createElement('tr');
-        editTr.style.display = 'none';
-        const col = document.createElement('td');
-        col.colSpan = 4;
-        col.innerHTML = `
-          <div class="muted">Update fields (leave blank to keep unchanged)</div>
-          <div class="row" style="margin-top:6px;">
-            <div class="col">
-              <label>Client ID<input class="upd-clientId" placeholder="${a.provider==='google'?'Google':'Microsoft'} Client ID"/></label>
-              <label>Redirect URI<input class="upd-redirectUri" placeholder="http://localhost:5178/auth/${a.provider}/callback"/></label>
-            </div>
-            <div class="col">
-              <label>Client Secret<input class="upd-clientSecret" placeholder="${a.provider==='google'?'Google':'Microsoft'} Client Secret"/></label>
-              ${a.provider==='microsoft' ? '<label>Tenant ID<input class="upd-tenantId" placeholder="common or tenant GUID"/></label>' : ''}
-              <label>Scopes (comma)<input class="upd-scopes" placeholder="leave blank to keep"/></label>
-            </div>
-          </div>
-          <button class="saveBtn" style="margin-right: 10px;">💾 Save</button>
-          <button class="cancelBtn" style="margin-right: 10px;">❌ Cancel</button>
-          <span class="muted msg"></span>
-        `;
-        editTr.appendChild(col);
-        tbody.appendChild(editTr);
+    window.addEventListener('unhandledrejection', (event) => {
+      console.error('Unhandled rejection:', event.reason);
+      showNotification(event.reason?.message || 'An error occurred', 'error');
+      event.preventDefault();
+      return false;
+    });
 
-        const editBtn = tr.querySelector('.editBtn');
-        const saveBtn = col.querySelector('.saveBtn');
-        const cancelBtn = col.querySelector('.cancelBtn');
-        const msg = col.querySelector('.msg');
-        const inputs = {
-          clientId: col.querySelector('.upd-clientId'),
-          clientSecret: col.querySelector('.upd-clientSecret'),
-          tenantId: col.querySelector('.upd-tenantId'),
-          redirectUri: col.querySelector('.upd-redirectUri'),
-          scopes: col.querySelector('.upd-scopes'),
-        };
+    // Load accounts on page load
+// Add this to your accounts.html, preferably in a script tag at the bottom of the body
+// In accounts.html, update the DOMContentLoaded event listener to this:
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load accounts when the page first loads
+      loadAccounts();
+      
+      // Set up the message handler for OAuth callbacks
+      setupMessageHandler();
+      
+      // Keep the message listener for AUTH_SUCCESS
+      window.addEventListener('message', function(event) {
+        // Verify the origin for security
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'AUTH_SUCCESS') {
+          console.log('Authentication successful:', event.data);
+          // Reload the accounts list to show the updated status
+          loadAccounts();
+        }
+      });
+    });
 
-        editBtn.addEventListener('click', () => { editTr.style.display = ''; });
-        cancelBtn.addEventListener('click', () => { editTr.style.display = 'none'; msg.textContent=''; });
-        saveBtn.addEventListener('click', async () => {
-          const updates = {};
-          if (inputs.clientId && inputs.clientId.value.trim()) updates.clientId = inputs.clientId.value.trim();
-          if (inputs.clientSecret && inputs.clientSecret.value.trim()) updates.clientSecret = inputs.clientSecret.value.trim();
-          if (inputs.tenantId && inputs.tenantId.value.trim()) updates.tenantId = inputs.tenantId.value.trim();
-          if (inputs.redirectUri && inputs.redirectUri.value.trim()) updates.redirectUri = inputs.redirectUri.value.trim();
-          if (inputs.scopes && inputs.scopes.value.trim()) updates.scopes = inputs.scopes.value.split(',').map(s=>s.trim()).filter(Boolean);
-          const res = await fetch('/api/accounts/update', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ provider: a.provider, alias: a.alias, updates })
-          });
-          if (res.ok) {
-            msg.textContent = 'Saved.';
-            editTr.style.display = 'none';
-            loadAccounts();
-          } else {
-            const err = await res.json().catch(()=>({}));
-            msg.textContent = 'Error: ' + (err.error || res.statusText);
-          }
-        });
+    function setupMessageHandler() {
+      window.addEventListener('message', (event) => {
+        // Only handle messages from our own origin
+        if (event.origin !== window.location.origin) return;
+        
+        const data = event.data;
+        if (data && data.type === 'oauth-callback') {
+          handleOAuthCallback(data);
+          return false; // Indicate we're not sending a response
+        }
+      });
+    }
+
+    async function handleOAuthCallback(data) {
+      try {
+        if (data.success) {
+          showNotification(`Successfully connected ${data.provider} account`, 'success');
+          // Add a small delay to ensure the server has processed everything
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Force a complete reload of the accounts to ensure we have the latest status
+          await loadAccounts();
+        } else {
+          showNotification(data.error || 'Authentication failed', 'error');
+        }
+      } catch (error) {
+        console.error('Error handling OAuth callback:', error);
+        showNotification('Error processing authentication', 'error');
       }
     }
 
-    async function addAccount() {
-      const provider = providerEl.value;
-      const alias = document.getElementById('alias').value.trim();
-      const clientId = document.getElementById('clientId').value.trim();
-      const clientSecret = document.getElementById('clientSecret').value.trim();
-      const tenantId = document.getElementById('tenantId').value.trim();
-      const redirectUri = document.getElementById('redirectUri').value.trim();
-      const scopesRaw = document.getElementById('scopes').value.trim();
-      const scopes = scopesRaw ? scopesRaw.split(',').map(s => s.trim()).filter(Boolean) : undefined;
+    function showNotification(message, type = 'info') {
+      try {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+          try {
+            if (notification && notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          } catch (e) {
+            console.error('Error removing notification:', e);
+          }
+        }, 5000);
+        
+        return notification;
+      } catch (error) {
+        console.error('Error showing notification:', error);
+        // Fallback to alert if DOM manipulation fails
+        window.alert(`${type.toUpperCase()}: ${message}`);
+      }
+    }
+
+    function editAccount(provider, alias) {
+      // Implement edit functionality
+      // You can open a modal or navigate to an edit page
+      console.log(`Edit ${provider} account: ${alias}`);
+      // Example: window.location.href = `/edit-account.html?provider=${provider}&alias=${encodeURIComponent(alias)}`;
+    }
+    async function checkAccountStatus(provider, alias) {
+      try {
+        const response = await fetch(`/api/accounts/token/${provider}/${encodeURIComponent(alias)}`);
+        if (!response.ok) {
+          const error = await response.text();
+          console.error('Failed to check account status:', error);
+          return false;
+        }
+        const data = await response.json();
+        console.log('Token status for', provider, alias, ':', data);
+        return data.hasToken === true;
+      } catch (e) {
+        console.error('Error checking account status:', e);
+        return false;
+      }
+    }
+
+    function createAccountElement(provider, accountData, isConnected) {
+      const accountRow = document.createElement('div');
+      accountRow.className = 'account-row';
+      accountRow.id = `${provider}-${accountData.alias}`;
       
-      const updates = {
-        clientId,
-        clientSecret,
-        redirectUri,
-        scopes
-      };
+      const statusClass = isConnected ? 'status-connected' : 'status-disconnected';
+      const statusIcon = isConnected ? 'fa-check-circle' : 'fa-times-circle';
+      const statusText = isConnected ? 'Connected' : 'Disconnected';
       
-      if (provider === 'microsoft') {
-        updates.tenantId = tenantId || 'common';
+      accountRow.innerHTML = `
+        <div class="account-name">
+          <i class="fab fa-${provider}"></i>
+          <span>${accountData.alias || 'No alias'}</span>
+        </div>
+        
+        <div class="account-status ${statusClass}">
+          <i class="fas ${statusIcon}"></i>
+          <span>${statusText}</span>
+        </div>
+        
+        <div class="account-provider">
+          ${provider.charAt(0).toUpperCase() + provider.slice(1)}
+        </div>
+        
+        <div class="account-actions">
+          ${isConnected ? 
+            `<button class="btn-icon btn-disconnect" title="Disconnect" 
+              onclick="disconnectAccount('${provider}', '${accountData.alias}')">
+              <i class="fas fa-plug"></i>
+            </button>` : 
+            `<button class="btn-icon btn-connect" title="Connect" 
+              onclick="connectAccount('${provider}', '${accountData.alias}')">
+              <i class="fas fa-plug"></i>
+            </button>`
+          }
+          <button class="btn-icon btn-edit" title="Edit" 
+            onclick="editAccount('${provider}', '${accountData.alias}')">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn-icon btn-delete" title="Delete" 
+            onclick="deleteAccount('${provider}', '${accountData.alias}')">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      `;
+      
+      return accountRow;
+    }
+
+    async function loadAccounts() {
+      try {
+        const container = document.getElementById('accounts');
+        container.innerHTML = '<p>Loading accounts...</p>';
+
+        const response = await fetch('/api/accounts');
+        if (!response.ok) {
+          throw new Error('Failed to load accounts');
+        }
+
+        const data = await response.json();
+        
+        // Create grid container
+        container.innerHTML = `
+          <div class="accounts-grid">
+            <div class="account-row" style="font-weight: bold; background-color: #f8f9fa;">
+              <div>Account</div>
+              <div>Status</div>
+              <div>Provider</div>
+              <div style="text-align: right;">Actions</div>
+            </div>
+          </div>
+        `;
+        
+        const grid = container.querySelector('.accounts-grid');
+
+        for (const [provider, accounts] of Object.entries(data)) {
+          if (accounts && Array.isArray(accounts) && accounts.length > 0) {
+            for (const account of accounts) {
+              try {
+                const accountData = typeof account === 'string' ? JSON.parse(account) : account;
+                const isConnected = await checkAccountStatus(provider, accountData.alias);
+                const accountElement = createAccountElement(provider, accountData, isConnected);
+                grid.appendChild(accountElement);
+              } catch (e) {
+                console.error('Error processing account:', account, e);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error loading accounts:', error);
+        const container = document.getElementById('accounts');
+        container.innerHTML = `<p class="error">Error loading accounts: ${error.message}</p>`;
+      }
+    }
+      
+    async function connectAccount(provider, alias) {
+          try {
+            const button = event.target;
+            if (button) {
+              button.disabled = true;
+              button.textContent = 'Connecting...';
+            }
+
+            const width = 600;
+            const height = 800;
+            const left = (window.screen.width - width) / 2;
+            const top = (window.screen.height - height) / 2;
+            
+            const popup = window.open(
+              `/auth/${provider}/start/${encodeURIComponent(alias)}`,
+              'oauth',
+              `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+            );
+
+            if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+              throw new Error('Popup was blocked. Please allow popups for this site.');
+            }
+          } catch (error) {
+            console.error('Error connecting account:', error);
+            showNotification(`Error: ${error.message}`, 'error');
+            
+            const button = document.querySelector(`#${provider}-${alias} .btn-connect`);
+            if (button) {
+              button.disabled = false;
+              button.textContent = 'Connect';
+            }
+          }
+        }
+
+    async function disconnectAccount(provider, alias) {
+      if (!confirm(`Are you sure you want to disconnect ${alias}?`)) {
+        return;
       }
 
       try {
-        const res = await fetch('/api/accounts/update', {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' }, 
-          body: JSON.stringify({ 
-            provider, 
-            alias, 
-            updates 
-          })
+        const button = document.querySelector(`#${provider}-${alias} .btn-disconnect`);
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Disconnecting...';
+        }
+
+        const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}/disconnect`, {
+          method: 'POST'
         });
         
-        const msg = document.getElementById('addStatus');
-        if (res.ok) {
-          msg.textContent = 'Account added successfully. Now click Connect to complete OAuth.';
-          // Clear the form
-          document.getElementById('alias').value = '';
-          document.getElementById('clientId').value = '';
-          document.getElementById('clientSecret').value = '';
-          document.getElementById('tenantId').value = '';
-          document.getElementById('redirectUri').value = '';
-          document.getElementById('scopes').value = '';
-          // Reload the accounts list
-          loadAccounts();
-        } else {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || res.statusText);
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          throw new Error(error.message || 'Failed to disconnect account');
         }
+
+        // Force a complete refresh of the accounts list
+        const container = document.getElementById('accounts');
+        container.innerHTML = '<p>Disconnecting account...</p>';
+        
+        // Add a small delay to ensure the server has processed the request
+        setTimeout(async () => {
+          try {
+            // Force a fresh status check
+            const isStillConnected = await checkAccountStatus(provider, alias);
+            console.log(`After disconnect, is ${alias} still connected?`, isStillConnected);
+            
+            // Refresh the accounts list
+            await loadAccounts();
+          } catch (error) {
+            console.error('Error refreshing accounts:', error);
+            container.innerHTML = '<p>Error refreshing accounts. Please refresh the page.</p>';
+          }
+        }, 1000);
       } catch (error) {
-        const msg = document.getElementById('addStatus');
-        msg.textContent = 'Error: ' + (error.message || 'Failed to add account');
-      }
-    }
-
-    // Display error message if any
-    const urlParams = new URLSearchParams(window.location.search);
-    const error = urlParams.get('error');
-    const message = urlParams.get('message');
-    
-    if (error && message) {
-      const errorDiv = document.getElementById('error-message');
-      errorDiv.textContent = `Authentication Error: ${decodeURIComponent(message)}`;
-      errorDiv.style.display = 'block';
-      
-      // Clean up the URL
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-    }
-    
-    // Check for OAuth completion in URL
-    function checkOAuthStatus() {
-      const urlParams = new URLSearchParams(window.location.search);
-      const provider = urlParams.get('provider');
-      const status = urlParams.get('status');
-      
-      if (provider && status === 'connected') {
-        // Show success message
-        const msg = document.getElementById('addStatus');
-        msg.textContent = `Successfully connected to ${provider} account!`;
-        msg.style.color = 'green';
+        console.error('Error disconnecting account:', error);
+        showNotification(`Error disconnecting account: ${error.message}`, 'error');
         
-        // Remove the query parameters from the URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        
-        // Force a full page reload to ensure all state is fresh
-        // This ensures the accounts list is properly refreshed
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      }
-    }
-
-    // Check for OAuth completion when the page loads
-    document.addEventListener('DOMContentLoaded', () => {
-      checkOAuthStatus();
-    });
-
-    // Add event delegation for delete and disconnect buttons
-    document.addEventListener('click', async (e) => {
-      // Handle disconnect button
-      if (e.target.classList.contains('disconnectBtn')) {
-        const provider = e.target.dataset.provider;
-        const alias = e.target.dataset.alias;
-        
-        if (confirm(`Are you sure you want to disconnect the ${provider} account '${alias}'? This will remove the access token but keep the account configuration.`)) {
-          try {
-            const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}/disconnect`, {
-              method: 'POST'
-            });
-            
-            if (response.ok) {
-              loadAccounts(); // Refresh the account list
-            } else {
-              const error = await response.json();
-              alert(`Failed to disconnect account: ${error.message || 'Unknown error'}`);
-            }
-          } catch (err) {
-            console.error('Error disconnecting account:', err);
-            alert('Failed to disconnect account. Please check the console for details.');
-          }
+        const button = document.querySelector(`#${provider}-${alias} .btn-disconnect`);
+        if (button) {
+          button.disabled = false;
+          button.textContent = 'Disconnect';
         }
       }
-      
-      // Handle delete button
-      if (e.target.classList.contains('deleteBtn')) {
-        const provider = e.target.dataset.provider;
-        const alias = e.target.dataset.alias;
-        
-        if (confirm(`Are you sure you want to delete the ${provider} account '${alias}'?`)) {
-          try {
-            const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}`, {
-              method: 'DELETE'
-            });
-            
-            if (response.ok) {
-              loadAccounts(); // Refresh the account list
-            } else {
-              const error = await response.json();
-              alert(`Failed to delete account: ${error.message || 'Unknown error'}`);
-            }
-          } catch (err) {
-            console.error('Error deleting account:', err);
-            alert('Failed to delete account. Please check the console for details.');
-          }
-        }
-      }
-    });
+    }
 
-    loadAccounts();
+    async function saveAccount() {
+      const provider = document.getElementById('provider').value;
+      const alias = document.getElementById('alias').value.trim();
+      const clientId = document.getElementById('clientId').value.trim();
+      const clientSecret = document.getElementById('clientSecret').value.trim();
+      const tenantId = document.getElementById('tenantId').value.trim() || 'common';
+      const redirectUri = document.getElementById('redirectUri').value.trim();
+
+      if (!alias || !clientId || !clientSecret) {
+        showNotification('Please fill in all required fields', 'error');
+        return;
+      }
+
+      const account = {
+        alias,
+        clientId,
+        clientSecret,
+        redirectUri
+      };
+
+      if (provider === 'microsoft') {
+        account.tenantId = tenantId;
+      }
+
+      try {
+        const response = await fetch('/api/accounts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            provider,
+            account
+          }),
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to save account');
+        }
+
+        showNotification('Account saved successfully', 'success');
+        document.getElementById('alias').value = '';
+        document.getElementById('clientId').value = '';
+        document.getElementById('clientSecret').value = '';
+        
+        // Reload accounts
+        await loadAccounts();
+      } catch (error) {
+        console.error('Error saving account:', error);
+        showNotification(`Error saving account: ${error.message}`, 'error');
+      }
+    }
+
+    async function deleteAccount(provider, alias) {
+      if (!confirm(`Are you sure you want to delete ${alias}? This cannot be undone.`)) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/accounts/${provider}/${encodeURIComponent(alias)}`, {
+          method: 'DELETE'
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to delete account');
+        }
+
+        showNotification('Account deleted successfully', 'success');
+        await loadAccounts();
+      } catch (error) {
+        console.error('Error deleting account:', error);
+        showNotification(`Error deleting account: ${error.message}`, 'error');
+      }
+    }
   </script>
 </body>
 </html>

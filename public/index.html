@@ -202,25 +202,40 @@
             const container = document.getElementById('acctFilters');
             container.innerHTML = '';
             
-            for (const a of (data.accounts || [])) {
+            // Process Google accounts
+            const googleAccounts = data.google || [];
+            googleAccounts.forEach(account => {
+              addAccountCheckbox('google', account);
+            });
+            
+            // Process Microsoft accounts
+            const microsoftAccounts = data.microsoft || [];
+            microsoftAccounts.forEach(account => {
+              addAccountCheckbox('microsoft', account);
+            });
+            
+            resolve();
+
+            // Helper function to add account checkbox
+            function addAccountCheckbox(provider, account) {
+              const accountData = typeof account === 'string' ? JSON.parse(account) : account;
               const div = document.createElement('div');
               div.className = 'filter-item';
               
               const cb = document.createElement('input');
               cb.type = 'checkbox';
               cb.className = 'acct';
-              cb.id = `acct-${a.provider}-${a.alias}`;
-              cb.value = a.alias;
+              cb.id = `acct-${provider}-${accountData.alias}`;
+              cb.value = `${provider}:${accountData.alias}`;
               
               const label = document.createElement('label');
-              label.htmlFor = `acct-${a.provider}-${a.alias}`;
-              label.textContent = `${a.provider}: ${a.alias}`;
+              label.htmlFor = `acct-${provider}-${accountData.alias}`;
+              label.textContent = `${provider}: ${accountData.alias}`;
               
               div.appendChild(cb);
               div.appendChild(label);
               container.appendChild(div);
             }
-            resolve();
           })
           .catch(error => {
             console.error('Error loading accounts:', error);
@@ -259,3 +274,4 @@
   </script>
 </body>
 </html>
+<a href="/accounts.html" style="display: block; margin: 20px 0; font-size: 1.2em;">Manage Accounts</a>

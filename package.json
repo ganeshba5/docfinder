@@ -8,21 +8,26 @@
     "docfinder": "src/cli.js"
   },
   "scripts": {
-    "dev": "node src/server.js",
-    "cli": "node src/cli.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "init": "node scripts/init-tokens.js",
+    "dev": "nodemon src/server.js"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@azure/msal-node": "^2.6.4",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "commander": "^12.1.0",
+    "dotenv": "^17.2.3",
     "express": "^4.19.2",
     "fast-glob": "^3.3.2",
     "fuse.js": "^7.0.0",
-    "winston": "^3.13.0",
+    "google-auth-library": "^8.0.0",
     "googleapis": "^133.0.0",
-    "@azure/msal-node": "^2.6.4",
+    "js-yaml": "^4.1.1",
     "keytar": "^7.9.0",
-    "open": "^10.1.0",
     "node-fetch": "^3.3.2",
+    "open": "^10.1.0",
+    "winston": "^3.13.0",
     "yaml": "^2.6.0"
   }
 }
