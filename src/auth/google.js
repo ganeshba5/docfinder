@@ -7,30 +7,138 @@ function getAccount(cfg, alias) {
   return accounts.find((a) => a.alias === alias);
 }
 
-function makeClient(account) {
-  if (!account || !account.clientId || !account.clientSecret) {
-    throw new Error('Invalid Google account configuration');
+// Merge account-specific config with global OAuth config
+function getMergedAccountConfig(cfg, account) {
+  if (!account) {
+    return null;
+  }
+  
+  const globalAuth = cfg?.auth?.google || {};
+  
+  // Debug logging
+  logger.debug('Merging Google account config', {
+    alias: account.alias,
+    hasAccountClientId: !!account.clientId,
+    hasAccountClientSecret: !!account.clientSecret,
+    hasGlobalClientId: !!globalAuth.clientId,
+    hasGlobalClientSecret: !!globalAuth.clientSecret,
+    hasGlobalRedirectUri: !!globalAuth.redirectUri
+  });
+  
+  // Default scopes for Google OAuth
+  const defaultScopes = [
+    'https://www.googleapis.com/auth/drive.readonly',
+    'https://www.googleapis.com/auth/gmail.readonly',
+  ];
+  
+  // Get scopes from account, global config, or use defaults
+  let scopes = account.scopes || globalAuth.scopes || defaultScopes;
+  
+  // Ensure scopes is an array
+  if (!Array.isArray(scopes)) {
+    if (typeof scopes === 'string') {
+      scopes = scopes.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      scopes = defaultScopes;
+    }
+  }
+  
+  // If scopes array is empty, use defaults
+  if (scopes.length === 0) {
+    scopes = defaultScopes;
+  }
+  
+  // Merge: account-specific settings override global settings
+  const merged = {
+    alias: account.alias,
+    clientId: account.clientId || globalAuth.clientId,
+    clientSecret: account.clientSecret || globalAuth.clientSecret,
+    redirectUri: account.redirectUri || globalAuth.redirectUri,
+    scopes: scopes
+  };
+  
+  // Validate merged config
+  if (!merged.clientId || !merged.clientSecret || !merged.redirectUri) {
+    logger.error('Invalid merged Google account config', {
+      alias: account.alias,
+      hasClientId: !!merged.clientId,
+      hasClientSecret: !!merged.clientSecret,
+      hasRedirectUri: !!merged.redirectUri,
+      globalAuthKeys: Object.keys(globalAuth),
+      accountKeys: Object.keys(account)
+    });
+  }
+  
+  return merged;
+}
+
+function makeClient(accountConfig) {
+  if (!accountConfig || !accountConfig.clientId || !accountConfig.clientSecret) {
+    throw new Error('Invalid Google account configuration: missing clientId or clientSecret');
+  }
+  
+  if (!accountConfig.redirectUri) {
+    throw new Error('Invalid Google account configuration: missing redirectUri');
   }
   
   return new OAuth2Client(
-    account.clientId,
-    account.clientSecret,
-    account.redirectUri
+    accountConfig.clientId,
+    accountConfig.clientSecret,
+    accountConfig.redirectUri
   );
 }
 
 function buildAuthUrl(cfg, alias) {
   try {
+    logger.debug('Building Google auth URL', {
+      alias,
+      hasConfig: !!cfg,
+      hasAuthGoogle: !!cfg?.auth?.google,
+      globalClientId: !!cfg?.auth?.google?.clientId,
+      globalClientSecret: !!cfg?.auth?.google?.clientSecret,
+      globalRedirectUri: !!cfg?.auth?.google?.redirectUri,
+      accountsCount: cfg?.providers?.google?.accounts?.length || 0
+    });
+
     const account = getAccount(cfg, alias);
     if (!account) {
+      logger.error('Google account not found', { alias, availableAccounts: cfg?.providers?.google?.accounts?.map(a => a.alias) || [] });
       throw new Error(`Google account not found: ${alias}`);
     }
 
-    const client = makeClient(account);
-    const scopes = account.scopes || [
-      'https://www.googleapis.com/auth/drive.readonly',
-      'https://www.googleapis.com/auth/gmail.readonly',
-    ];
+    logger.debug('Found Google account', { alias, accountKeys: Object.keys(account) });
+
+    // Merge account config with global OAuth config
+    const mergedConfig = getMergedAccountConfig(cfg, account);
+    if (!mergedConfig) {
+      throw new Error(`Failed to merge account configuration for: ${alias}`);
+    }
+
+    logger.debug('Merged config', {
+      alias,
+      hasClientId: !!mergedConfig.clientId,
+      hasClientSecret: !!mergedConfig.clientSecret,
+      hasRedirectUri: !!mergedConfig.redirectUri,
+      scopesCount: mergedConfig.scopes?.length || 0
+    });
+
+    const client = makeClient(mergedConfig);
+    let scopes = mergedConfig.scopes;
+
+    // Ensure scopes is an array and not empty
+    if (!Array.isArray(scopes) || scopes.length === 0) {
+      logger.warn('No scopes provided, using defaults', { alias });
+      scopes = [
+        'https://www.googleapis.com/auth/drive.readonly',
+        'https://www.googleapis.com/auth/gmail.readonly',
+      ];
+    }
+
+    logger.debug('Generating Google auth URL with scopes', { 
+      alias, 
+      scopeCount: scopes.length,
+      scopes: scopes 
+    });
 
     return client.generateAuthUrl({
       access_type: 'offline',
@@ -62,8 +170,14 @@ async function handleCallback(config, code, state) {
 
     logger.info('Processing Google OAuth callback', { alias });
 
+    // Merge account config with global OAuth config
+    const mergedConfig = getMergedAccountConfig(config, account);
+    if (!mergedConfig) {
+      throw new Error(`Failed to merge account configuration for: ${alias}`);
+    }
+
     // Get the OAuth2 client
-    const oauth2Client = makeClient(account);
+    const oauth2Client = makeClient(mergedConfig);
 
     // Exchange the authorization code for tokens
     const { tokens } = await oauth2Client.getToken(code).catch(error => {
@@ -125,7 +239,13 @@ async function getAuthorizedClient(cfg, alias) {
       return null;
     }
 
-    const client = makeClient(account);
+    // Merge account config with global OAuth config
+    const mergedConfig = getMergedAccountConfig(cfg, account);
+    if (!mergedConfig) {
+      throw new Error(`Failed to merge account configuration for: ${alias}`);
+    }
+
+    const client = makeClient(mergedConfig);
     client.setCredentials(tokens);
 
     // Verify the credentials are still valid

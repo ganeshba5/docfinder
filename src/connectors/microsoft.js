@@ -58,7 +58,7 @@ async function searchOutlook(client, alias, query) {
 }
 
 // In connectors/microsoft.js
-async function searchMicrosoftByName(name, msCfg) {
+async function searchMicrosoftByName(name, msCfg, fullConfig) {
   if (!msCfg?.enabled || !Array.isArray(msCfg.accounts) || msCfg.accounts.length === 0) {
     logger.debug('Microsoft provider disabled or no accounts configured');
     return [];
@@ -70,9 +70,15 @@ async function searchMicrosoftByName(name, msCfg) {
     try {
       logger.info(`Searching Microsoft account: ${account.alias}`);
       
+      // Use full config if provided, otherwise construct minimal one
+      const cfg = fullConfig || { 
+        providers: { microsoft: { accounts: msCfg.accounts } },
+        auth: { microsoft: {} }
+      };
+      
       const client = await getAuthorizedClient({
         alias: account.alias,
-        config: { providers: { microsoft: { accounts: msCfg.accounts } } }
+        config: cfg
       });
 
       if (!client) {

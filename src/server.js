@@ -2,34 +2,33 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 
-// Application modules
-const logger = require('./logger');
-const { getTokens, deleteTokens } = require('./tokenStore');
-const config = require('./config');
-const { unifiedSearchByName } = require('./search/unified');
-const { buildAuthUrl, handleCallback } = require('./auth/microsoft');
-const googleAuth = require('./auth/google');
-const msAuth = require('./auth/microsoft');
-
-// Load .env file at startup
+// Load .env file at startup BEFORE requiring config
 function loadEnvFile() {
   const envPath = path.join(__dirname, '..', '.env');
   if (fs.existsSync(envPath)) {
     const envContent = fs.readFileSync(envPath, 'utf8');
     envContent.split('\n').forEach(line => {
+      // Skip comments and empty lines
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return;
+      }
+      
       const match = line.match(/^([^=]+)=(.*)$/);
       if (match) {
         const key = match[1].trim();
         let value = match[2].trim();
         
+        // Remove quotes if present
+        if ((value.startsWith('"') && value.endsWith('"')) || 
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        
         // Handle JSON values
         if ((value.startsWith('[') && value.endsWith(']')) || 
             (value.startsWith('{') && value.endsWith('}'))) {
-          try {
-            process.env[key] = value; // Store as string, we'll parse when needed
-          } catch (e) {
-            process.env[key] = value;
-          }
+          process.env[key] = value; // Store as string, we'll parse when needed
         } else {
           process.env[key] = value;
         }
@@ -38,8 +37,20 @@ function loadEnvFile() {
   }
 }
 
-// Initialize environment
+// Initialize environment FIRST
 loadEnvFile();
+
+// Application modules (loaded AFTER env is set up)
+const logger = require('./logger');
+const { getTokens, deleteTokens } = require('./tokenStore');
+const configModule = require('./config');
+const { unifiedSearchByName } = require('./search/unified');
+const { buildAuthUrl, handleCallback } = require('./auth/microsoft');
+const googleAuth = require('./auth/google');
+const msAuth = require('./auth/microsoft');
+
+// Get fresh config that includes the loaded env vars
+const config = configModule.reload ? configModule.reload() : configModule;
 
 const app = express();
 
@@ -85,7 +96,9 @@ app.get('/api/accounts/token/:provider/:alias', async (req, res) => {
 app.get('/auth/google/start/:alias', (req, res) => {
   try {
     const { alias } = req.params;
-    const url = googleAuth.buildAuthUrl(config, alias);
+    // Get fresh config to ensure we have latest env vars
+    const currentConfig = configModule.reload ? configModule.reload() : config;
+    const url = googleAuth.buildAuthUrl(currentConfig, alias);
     res.redirect(url);
   } catch (e) {
     logger.error('Error starting Google auth:', e);
@@ -122,7 +135,9 @@ app.get('/auth/google/callback', async (req, res) => {
 
     // Handle the OAuth callback and store tokens
     try {
-      const result = await googleAuth.handleCallback(config, code, state);
+      // Get fresh config to ensure we have latest env vars
+      const currentConfig = configModule.reload ? configModule.reload() : config;
+      const result = await googleAuth.handleCallback(currentConfig, code, state);
       
       if (!result || !result.success) {
         throw new Error('Failed to complete Google OAuth flow');
@@ -198,7 +213,9 @@ app.get('/auth/microsoft/start/:alias', async (req, res) => {
       throw new Error('Missing alias parameter');
     }
     logger.info('Starting Microsoft OAuth flow', { alias });
-    const url = await msAuth.buildAuthUrl(config, alias);
+    // Get fresh config to ensure we have latest env vars
+    const currentConfig = configModule.reload ? configModule.reload() : config;
+    const url = await msAuth.buildAuthUrl(currentConfig, alias);
     logger.debug('Redirecting to Microsoft auth URL');
     res.redirect(url);
   } catch (e) {
@@ -216,7 +233,7 @@ app.get('/auth/microsoft/callback', async (req, res) => {
     // Parse the state parameter to get the alias
     stateObj = state ? JSON.parse(decodeURIComponent(state)) : {};
   } catch (e) {
-    console.error('Error parsing state:', e);
+    logger.error('Error parsing state', { error: e.message, stack: e.stack });
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -246,8 +263,9 @@ app.get('/auth/microsoft/callback', async (req, res) => {
   }
 
   try {
-    const config = require('./config');
-    const result = await msAuth.handleCallback(config, code, state);
+    // Get fresh config to ensure we have latest env vars
+    const currentConfig = configModule.reload ? configModule.reload() : config;
+    const result = await msAuth.handleCallback(currentConfig, code, state);
     
     if (result?.success) {
       // Close the popup and redirect the parent window
@@ -294,7 +312,7 @@ app.get('/auth/microsoft/callback', async (req, res) => {
       `);
     }
   } catch (error) {
-    console.error('Microsoft OAuth callback error:', error);
+    logger.error('Microsoft OAuth callback error', { error: error.message, stack: error.stack });
     res.send(`
       <!DOCTYPE html>
       <html>
@@ -316,9 +334,10 @@ app.get('/auth/microsoft', (req, res) => {
     return res.status(400).send('Alias parameter is required');
   }
   
-  const config = require('./config');
+  // Get fresh config to ensure we have latest env vars
+  const currentConfig = configModule.reload ? configModule.reload() : config;
   try {
-    const authUrl = buildAuthUrl(config, alias);
+    const authUrl = msAuth.buildAuthUrl(currentConfig, alias);
     res.redirect(authUrl);
   } catch (error) {
     res.status(500).send(`Error generating auth URL: ${error.message}`);
@@ -354,7 +373,9 @@ app.get('/api/search', async (req, res) => {
       return parts.length > 1 ? parts[1] : acc; // Extract just the alias part
     });
 
-    let results = await unifiedSearchByName(name, config, {
+    // Get fresh config to ensure we have latest env vars
+    const currentConfig = configModule.reload ? configModule.reload() : config;
+    let results = await unifiedSearchByName(name, currentConfig, {
       includeSources: sourcesFilter,
       includeAccounts: accountAliases, // Pass just the aliases
     });
@@ -662,7 +683,7 @@ function updateEnvironmentVariables(config) {
 
 // At the very bottom of server.js, after all route definitions
 if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 5178;
   app.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
   });

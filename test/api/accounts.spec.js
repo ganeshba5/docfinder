@@ -16,7 +16,7 @@ const testAccount = {
     alias: `test-account-${Date.now()}`,
     clientId: 'test-client-id',
     clientSecret: 'test-client-secret',
-    redirectUri: 'http://localhost:3000/auth/google/callback'
+    redirectUri: 'http://localhost:5178/auth/google/callback'
   }
 };
 

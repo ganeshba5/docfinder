@@ -157,7 +157,7 @@ const keychainStore = {
       
       return normalizedTokens;
     } catch (error) {
-      console.error(`[DEBUG] Error in keychain lookup for ${keyStr}:`, error);
+      logger.debug('Error in keychain lookup', { keyStr, error: error.message });
       logError('keychain_get', error, provider, alias);
       return null;
     }
@@ -195,21 +195,21 @@ try {
 // In tokenStore.js
 async function saveTokens(provider, alias, tokens) {
   try {
-    console.log('=== Saving Tokens ===');
-    console.log('Provider:', provider);
-    console.log('Alias:', alias);
-    console.log('Token data:', {
-      accessToken: tokens.access_token ? '***' + tokens.access_token.slice(-8) : 'MISSING',
-      refreshToken: tokens.refresh_token ? '***' + tokens.refresh_token.slice(-8) : 'MISSING',
-      expiresAt: tokens.expires_at ? new Date(tokens.expires_at).toISOString() : 'MISSING',
-      tokenType: tokens.token_type || 'MISSING'
+    logger.debug('Saving tokens', {
+      provider,
+      alias,
+      tokenData: {
+        accessToken: tokens.access_token ? '***' + tokens.access_token.slice(-8) : 'MISSING',
+        refreshToken: tokens.refresh_token ? '***' + tokens.refresh_token.slice(-8) : 'MISSING',
+        expiresAt: tokens.expires_at ? new Date(tokens.expires_at).toISOString() : 'MISSING',
+        tokenType: tokens.token_type || 'MISSING'
+      }
     });
 
     const key = `${provider}:${alias}`;
     const value = JSON.stringify(tokens);
     
-    console.log('Keychain key:', key);
-    console.log('Using service name:', SERVICE); // Add this line to verify the service name
+    logger.debug('Token storage details', { key, service: SERVICE });
     
     // Make sure we're using the SERVICE constant
     await keytar.setPassword(SERVICE, key, value);
@@ -220,12 +220,14 @@ async function saveTokens(provider, alias, tokens) {
       throw new Error('Failed to verify token storage - tokens not found after saving');
     }
     
-    console.log('Tokens saved and verified successfully');
+    logger.debug('Tokens saved and verified successfully', { provider, alias });
     return true;
   } catch (error) {
-    console.error('Failed to save tokens:', {
+    logger.error('Failed to save tokens', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      provider,
+      alias
     });
     throw error;
   }

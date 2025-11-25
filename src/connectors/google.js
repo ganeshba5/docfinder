@@ -89,7 +89,7 @@ async function searchGmail(client, alias, name) {
   return results;
 }
 
-async function searchGoogleByName(name, googleCfg) {
+async function searchGoogleByName(name, googleCfg, fullConfig) {
   if (!googleCfg?.enabled || !Array.isArray(googleCfg.accounts) || googleCfg.accounts.length === 0) {
     logger.debug('Google provider disabled or no accounts configured');
     return [];
@@ -97,7 +97,12 @@ async function searchGoogleByName(name, googleCfg) {
   const out = [];
   for (const acc of googleCfg.accounts) {
     try {
-      const client = await getAuthorizedClient({ providers: { google: { accounts: googleCfg.accounts } } }, acc.alias);
+      // Use full config if provided, otherwise construct minimal one
+      const cfg = fullConfig || { 
+        providers: { google: { accounts: googleCfg.accounts } },
+        auth: { google: {} }
+      };
+      const client = await getAuthorizedClient(cfg, acc.alias);
       if (!client) { logger.info('Google account %s not connected yet', acc.alias); continue; }
       const [drive, gmail] = await Promise.all([
         searchDrive(client, acc.alias, name),

@@ -40,8 +40,8 @@ async function unifiedSearchByName(name, cfg, opts = {}) {
 
   const tasks = [];
   if (wantsLocal) tasks.push(searchLocalByName(name, cfg.local)); else tasks.push(Promise.resolve([]));
-  if (wantsGoogle) tasks.push(searchGoogleByName(name, cfg.providers?.google)); else tasks.push(Promise.resolve([]));
-  if (wantsMicrosoft) tasks.push(searchMicrosoftByName(name, cfg.providers?.microsoft)); else tasks.push(Promise.resolve([]));
+  if (wantsGoogle) tasks.push(searchGoogleByName(name, cfg.providers?.google, cfg)); else tasks.push(Promise.resolve([]));
+  if (wantsMicrosoft) tasks.push(searchMicrosoftByName(name, cfg.providers?.microsoft, cfg)); else tasks.push(Promise.resolve([]));
 
   const [local, google, ms] = await Promise.all(tasks);
 

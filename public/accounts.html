@@ -354,26 +354,27 @@ document.addEventListener('DOMContentLoaded', function() {
     // Verify the origin for security
     if (event.origin !== window.location.origin) return;
     
-    if (event.data.type === 'AUTH_SUCCESS') {
-      console.log('Authentication successful:', event.data);
-      // Reload the accounts list to show the updated status
-      loadAccounts();
+    const data = event.data;
+    if (!data || !data.type) return;
+    
+    // Handle both message types
+    if (data.type === 'AUTH_SUCCESS' || data.type === 'oauth-callback') {
+      console.log('Authentication callback received:', data);
+      
+      if (data.type === 'oauth-callback') {
+        // Handle Google OAuth callback
+        handleOAuthCallback(data);
+      } else if (data.type === 'AUTH_SUCCESS') {
+        // Handle Microsoft OAuth callback
+        handleOAuthCallback({
+          success: true,
+          provider: data.provider,
+          alias: data.alias
+        });
+      }
     }
   });
 });
-
-    function setupMessageHandler() {
-      window.addEventListener('message', (event) => {
-        // Only handle messages from our own origin
-        if (event.origin !== window.location.origin) return;
-        
-        const data = event.data;
-        if (data && data.type === 'oauth-callback') {
-          handleOAuthCallback(data);
-          return false; // Indicate we're not sending a response
-        }
-      });
-    }
 
     async function handleOAuthCallback(data) {
       try {
@@ -701,38 +702,54 @@ async function loadAccounts() {
 }
 
     async function connectAccount(provider, alias) {
-          try {
-            const button = event.target;
-            if (button) {
-              button.disabled = true;
-              button.textContent = 'Connecting...';
-            }
-
-            const width = 600;
-            const height = 800;
-            const left = (window.screen.width - width) / 2;
-            const top = (window.screen.height - height) / 2;
-            
-            const popup = window.open(
-              `/auth/${provider}/start/${encodeURIComponent(alias)}`,
-              'oauth',
-              `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
-            );
-
-            if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-              throw new Error('Popup was blocked. Please allow popups for this site.');
-            }
-          } catch (error) {
-            console.error('Error connecting account:', error);
-            showNotification(`Error: ${error.message}`, 'error');
-            
-            const button = document.querySelector(`#${provider}-${alias} .btn-connect`);
-            if (button) {
-              button.disabled = false;
-              button.textContent = 'Connect';
-            }
-          }
+      try {
+        // Find the button that was clicked
+        const button = event?.target?.closest('.icon-button') || 
+                      document.querySelector(`button[onclick*="connectAccount('${provider}', '${alias.replace(/'/g, "\\'")}')"]`);
+        
+        if (button) {
+          button.disabled = true;
+          const originalHTML = button.innerHTML;
+          button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         }
+
+        const width = 600;
+        const height = 800;
+        const left = (window.screen.width - width) / 2;
+        const top = (window.screen.height - height) / 2;
+        
+        const popup = window.open(
+          `/auth/${provider}/start/${encodeURIComponent(alias)}`,
+          'oauth',
+          `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes,status=no`
+        );
+
+        if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+          throw new Error('Popup was blocked. Please allow popups for this site.');
+        }
+        
+        // Set up a listener for when the popup closes (as a fallback)
+        const checkClosed = setInterval(() => {
+          if (popup.closed) {
+            clearInterval(checkClosed);
+            // Reload accounts after a short delay to ensure server processed the auth
+            setTimeout(() => {
+              loadAccounts();
+            }, 1000);
+          }
+        }, 500);
+        
+      } catch (error) {
+        console.error('Error connecting account:', error);
+        showNotification(`Error: ${error.message}`, 'error');
+        
+        const button = document.querySelector(`button[onclick*="connectAccount('${provider}', '${alias.replace(/'/g, "\\'")}')"]`);
+        if (button) {
+          button.disabled = false;
+          button.innerHTML = '<i class="fas fa-plug"></i>';
+        }
+      }
+    }
 
     async function disconnectAccount(provider, alias) {
       if (!confirm(`Are you sure you want to disconnect ${alias}?`)) {
